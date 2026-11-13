@@ -1,12 +1,15 @@
 :root {
-    --lossia-bg: #f4f5f9;
-    --lossia-panel: #f8f9fc;
-    --lossia-side: #eceef4;
+    /* Fondo más frío/oscuro que las tarjetas (blanco puro) para que estas destaquen con
+       claridad sin depender solo de la sombra; mismo lenguaje visual, más contraste. */
+    --lossia-bg: #eef0f6;
+    --lossia-panel: #ffffff;
+    --lossia-side: #e7eaf2;
     --lossia-ink: #161c25;
     --lossia-muted: #405063;
-    --lossia-edge: #dfe4ed;
+    --lossia-edge: #d7dce7;
+    --lossia-edge-soft: #e7eaf1;
     --lossia-blue: #0045a5;
-    --lossia-shadow: 0 9px 22px rgba(29, 43, 63, .055), 0 1px 2px rgba(29, 43, 63, .045);
+    --lossia-shadow: 0 10px 24px rgba(23, 35, 54, .07), 0 1px 2px rgba(23, 35, 54, .05);
 }
 [data-testid="stAppViewContainer"] { background: var(--lossia-bg); }
 [data-testid="stHeader"] { background: transparent; pointer-events: none; }
@@ -174,8 +177,7 @@
 .kpis { display: grid; grid-template-columns: 1.12fr 1fr 1fr; gap: clamp(10px, 1.05vw, 18px); }
 .kpi, .st-key-insights, .st-key-calidad [data-testid="stExpanderDetails"] > details,
 .st-key-calidad details, .st-key-tarjetas button {
-    border: 1px solid #fff;
-    border-bottom-color: #e5e8ef;
+    border: 1px solid var(--lossia-edge);
     border-radius: clamp(17px, 1.4vw, 24px);
     background: var(--lossia-panel);
     box-shadow: var(--lossia-shadow);
@@ -263,6 +265,37 @@
     transform: rotate(45deg);
 }
 .st-key-calidad [open] summary::after { transform: rotate(225deg); }
+.st-key-calidad [data-testid="stExpanderDetails"] {
+    padding: clamp(14px, 1.5vw, 24px) clamp(16px, 1.85vw, 31px) clamp(18px, 1.8vw, 28px);
+}
+.st-key-calidad [data-testid="stExpanderDetails"] > [data-testid="stVerticalBlockBorderWrapper"] {
+    margin-top: clamp(10px, 1.1vw, 16px);
+}
+/* Fila de gravedad + buscador, por encima de la lista de incidencias */
+.st-key-calidad [data-testid="stExpanderDetails"] > [data-testid="stElementContainer"]:nth-of-type(2) [data-testid="stHorizontalBlock"],
+.st-key-calidad [data-testid="stExpanderDetails"] [data-testid="stRadio"] [role="radiogroup"] {
+    gap: clamp(8px, 1vw, 16px);
+}
+.st-key-calidad [data-testid="stTextInput"] input { border-radius: 11px; }
+/* Cada incidencia: misma familia visual que las demás tarjetas (borde suave + esquinas),
+   pero algo más compacta y sin sombra propia, para no competir con la tarjeta exterior. */
+[class*="st-key-alerta_"] > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"] {
+    border-radius: 14px !important;
+    border-color: var(--lossia-edge-soft) !important;
+    background: var(--lossia-bg);
+    padding: clamp(12px, 1.3vw, 18px) clamp(14px, 1.6vw, 22px) !important;
+}
+[class*="st-key-alerta_"] + [class*="st-key-alerta_"] { margin-top: 9px; }
+[class*="st-key-alerta_"] [data-testid="stMarkdownContainer"] code {
+    background: #fff;
+    border: 1px solid var(--lossia-edge);
+    border-radius: 6px;
+    padding: .05em .4em;
+    font-size: .9em;
+}
+[class*="st-key-alerta_"] details { background: #fff; border-color: var(--lossia-edge) !important; }
+[class*="st-key-alerta_"] summary { min-height: 38px; padding: 6px 14px !important; }
+[class*="st-key-alerta_"] summary p { font-size: clamp(13px, .98vw, 15px); color: var(--lossia-muted); }
 
 .st-key-visualizaciones { margin-top: clamp(10px, 1.45vw, 24px); }
 .st-key-visualizaciones h2 { font-size: clamp(23px, 1.75vw, 31px); }
@@ -311,11 +344,14 @@
     box-shadow: 0 3px 10px #374f7412;
     pointer-events: none;
 }
-.st-key-acceso_reparto { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M6 57V42m15 15V31m15 26V11m15 46V25m15 32V33m15 24V45' stroke='%2398a4b5' stroke-width='9' stroke-linecap='round' opacity='.66'/%3E%3C/svg%3E"); }
-.st-key-acceso_criticidad { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68' fill='%23778599'%3E%3Ccircle cx='7' cy='56' r='5' opacity='.24'/%3E%3Ccircle cx='29' cy='38' r='5.5' opacity='.5'/%3E%3Ccircle cx='45' cy='55' r='5' opacity='.3'/%3E%3Ccircle cx='65' cy='37' r='6' opacity='.58'/%3E%3Ccircle cx='79' cy='15' r='6'/%3E%3C/svg%3E"); }
-.st-key-acceso_ranking { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68' stroke='%238995a7' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M5 12H100' opacity='.65'/%3E%3Cpath d='M5 27H74' opacity='.5'/%3E%3Cpath d='M5 42H52' opacity='.42'/%3E%3Cpath d='M5 57H42' opacity='.33'/%3E%3C/svg%3E"); }
-.st-key-acceso_disponibilidad { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M3 51 C16 49 20 33 35 39 S54 51 68 37 S90 25 105 34 S129 20 144 17 Q153 15 161 16' fill='none' stroke='%237c899c' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"); }
-.st-key-acceso_paradas { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M5 20h54m-9-9 9 9-9 9M58 46H5m9-9-9 9 9 9' stroke='%2375869c' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+/* Miniaturas: monocromáticas (gris), con un único acento azul sobre el elemento que
+   cada vista destaca (la barra/punto/etapa más relevante), para identificar la
+   visualización de un vistazo sin añadir más color del necesario. */
+.st-key-acceso_reparto { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M6 57V42m15 15V31m45 46V25m15 32V33m15 24V45' stroke='%2398a4b5' stroke-width='9' stroke-linecap='round' opacity='.6'/%3E%3Cpath d='M36 57V11' stroke='%230045a5' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.st-key-acceso_criticidad { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68' fill='%23778599'%3E%3Ccircle cx='7' cy='56' r='5' opacity='.26'/%3E%3Ccircle cx='29' cy='38' r='5.5' opacity='.5'/%3E%3Ccircle cx='45' cy='55' r='5' opacity='.32'/%3E%3Ccircle cx='65' cy='37' r='6' opacity='.58'/%3E%3Ccircle cx='79' cy='15' r='6.5' fill='%230045a5'/%3E%3C/svg%3E"); }
+.st-key-acceso_ranking { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M5 12H100' stroke='%230045a5'/%3E%3Cpath d='M5 27H74' stroke='%238995a7' opacity='.5'/%3E%3Cpath d='M5 42H52' stroke='%238995a7' opacity='.42'/%3E%3Cpath d='M5 57H42' stroke='%238995a7' opacity='.33'/%3E%3C/svg%3E"); }
+.st-key-acceso_disponibilidad { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M0 23h161' stroke='%23b9c2d0' stroke-width='2' stroke-dasharray='4 4'/%3E%3Cpath d='M3 51 C16 49 20 33 35 39 S54 51 68 37 S90 25 105 34 S129 20 144 17 Q153 15 161 16' fill='none' stroke='%237c899c' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='136' cy='19' r='5' fill='%230045a5'/%3E%3C/svg%3E"); }
+.st-key-acceso_paradas { --miniatura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 165 68'%3E%3Cpath d='M5 20h54m-9-9 9 9-9 9' stroke='%230045a5' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M58 46H5m9-9-9 9 9 9' stroke='%2375869c' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 
 :is(.st-key-navegacion_graficos, .st-key-selector_operacion) [data-testid="stSelectbox"] { min-width: min(220px, 100%); }
 .st-key-metricas_detalle [data-testid="stMetric"] { background: #fff; border-radius: 13px; }
