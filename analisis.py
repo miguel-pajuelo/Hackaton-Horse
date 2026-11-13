@@ -9,15 +9,12 @@ Requiere haber ejecutado antes limpieza.py.
 
 Salidas en Resultados/ (todas con columna 'Periodo' = 'GLOBAL' o día 'S40-D2',
 para que la interfaz filtre por granularidad):
-    etapas.csv                 operaciones -> etapa (paralelos fusionados), orden, si entra en la cadena
-    kpis_{global,dia}.csv      Dp, Tcy, Fpm, % de paradas y semáforo frente a las referencias
+    etapas.csv                      operaciones -> etapa (paralelos fusionados), orden, si entra en la cadena
+    kpis_{global,dia}.csv           Dp, Tcy, Fpm, % de paradas y semáforo frente a las referencias
     determinista_{global,dia}.csv   flechas, cuello de botella, severidad y horas inducidas
     determinista_resumen_dias.csv   cuántos días fue cada máquina cuello / cuello principal
-    ml_relaciones.csv          relaciones causa -> efecto aprendidas (coef., estabilidad, dirección)
-    ml_calidad.csv             R² en validación cruzada de cada modelo
-    ml_{global,dia}.csv        horas de parada inducida atribuidas a cada máquina
-    comparacion_{global,dia}.csv    ambos rankings lado a lado con etiqueta de acuerdo
-    comparacion_metricas.csv   Spearman, solape del top-K y máquina principal por periodo
+    mantenimiento_{global,dia}.csv  ranking por parada propia (TAP) con Dp, Tcy y datos dudosos
+    prioridades_{global,dia}.csv    vista unificada para la interfaz: categoría, motivo y orden
 """
 from __future__ import annotations
 
@@ -27,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lossia import comparacion, config as C, datos, determinista, kpis, ml
+from lossia import config as C, datos, determinista, kpis, prioridades
 
 
 def main(dir_limpios: Path, dir_res: Path) -> None:
@@ -43,47 +40,31 @@ def main(dir_limpios: Path, dir_res: Path) -> None:
     mapa = datos.mapa_etapas(cfg, grupos)
     etapa_dia = datos.por_etapa_dia(d, mapa)
     guardar(mapa, "etapas.csv")
-    etapas = etapa_dia.drop_duplicates("Etapa")[["Etapa", "Orden_etapa"]]
-    print(f"Etapas: {etapas.shape[0]} ({mapa['en_cadena'].sum()} operaciones en cadena) | "
+    print(f"Etapas: {etapa_dia['Etapa'].nunique()} ({mapa['en_cadena'].sum()} operaciones en cadena) | "
           f"días: {etapa_dia['Dia'].nunique()} | paralelos fusionados: {grupos}")
 
-    # 2. ML (se ajusta una vez con todos los días; luego se puntúa por nivel)
-    print(f"Ajustando modelo ML ({C.ML_N_BOOTSTRAP} remuestreos)...")
-    rel, cal = ml.ajustar(etapa_dia)
-    guardar(rel, "ml_relaciones.csv")
-    guardar(cal, "ml_calidad.csv")
-    atrib = ml.horas_inducidas_dia(etapa_dia, rel)
-
-    metricas = []
+    # 2. KPIs, método determinista y prioridades por granularidad
     for nivel in C.NIVELES:
         agg = datos.agregar(etapa_dia, nivel)
-        guardar(kpis.calcular(agg), f"kpis_{nivel}.csv")
+        k = kpis.calcular(agg)
         det = determinista.analizar(agg)
+        guardar(k, f"kpis_{nivel}.csv")
         guardar(det, f"determinista_{nivel}.csv")
+        guardar(prioridades.mantenimiento(k), f"mantenimiento_{nivel}.csv")
+        guardar(prioridades.vista(k, det), f"prioridades_{nivel}.csv")
         if nivel == "dia":
             guardar(determinista.resumen_dias(det), "determinista_resumen_dias.csv")
-        pml = ml.puntuar(atrib, nivel, etapas)
-        guardar(pml, f"ml_{nivel}.csv")
-        uni = comparacion.unir(det, pml)
-        guardar(uni, f"comparacion_{nivel}.csv")
-        metricas.append(comparacion.metricas(uni).assign(Nivel=nivel))
-    met = pd.concat(metricas, ignore_index=True)
-    guardar(met, "comparacion_metricas.csv")
 
     # 3. Resumen por consola
-    g = met[met["Nivel"] == "global"].iloc[0]
-    dia = met[met["Nivel"] == "dia"]
-    est = rel[rel["estable"]]
-    print("\n=== RESULTADO GLOBAL ===")
-    uni_g = pd.read_csv(dir_res / "comparacion_global.csv")
-    print(uni_g.head(C.TOP_K)[["Etapa", "es_cuello", "horas_inducidas", "rango_det",
-                               "horas_inducidas_ml", "rango_ml", "acuerdo"]].round(1).to_string(index=False))
-    print(f"\nPrincipal determinista: {g['principal_det']} | principal ML: {g['principal_ml']}")
-    print(f"Spearman global: {g['spearman']:.2f} | solape top-{C.TOP_K}: {g[f'solape_top{C.TOP_K}']:.0%}")
-    print(f"Por día: Spearman medio {dia['spearman'].mean():.2f}, "
-          f"misma principal en {dia['misma_principal'].mean():.0%} de los días")
-    print(f"ML: {len(est)} relaciones estables, {est['direccion_logica'].mean():.0%} con dirección "
-          f"físicamente lógica | R² CV mediano {cal['r2_cv'].median():.2f}")
+    pri = pd.read_csv(dir_res / "prioridades_global.csv", keep_default_na=False)
+    print("\n=== PRIORIDADES (GLOBAL) ===")
+    print(pri[pri["categoria"] != ""][["orden_vista", "Etapa", "categoria", "motivo"]].to_string(index=False))
+    res = pd.read_csv(dir_res / "determinista_resumen_dias.csv")
+    n = etapa_dia["Dia"].nunique()
+    print("\n=== ESTABILIDAD DIARIA DEL CUELLO DE BOTELLA ===")
+    for _, f in res[res["dias_relevante"] > 0].head(5).iterrows():
+        print(f"  {f['Etapa']:<10} principal {int(f['dias_principal']):>2}/{n} días | "
+              f"cuello relevante {int(f['dias_relevante']):>2}/{n} días")
     print(f"\nResultados en {dir_res}  ({time.time() - t0:.0f} s)")
 
 

@@ -15,11 +15,15 @@ Severidad (Kuo et al.):
     S_j = (SAT_{j-1} + DES_{j+1}) - (SAT_j + DES_j)       en fracción de TR
     S_1 = DES_2 - SAT_1 ;  S_M = SAT_{M-1} - DES_M         (extremos de la línea)
 
+Cuello relevante: severidad >= config.SEVERIDAD_MIN. Las máquinas se ordenan por
+relevancia y severidad (la severidad mide cuánto más esperan las vecinas que ella misma).
+
 Horas inducidas: para cada cuello se recorre su zona de influencia
     - aguas arriba mientras las flechas apunten hacia él, sumando la SAT de esas etapas
     - aguas abajo mientras las flechas apunten hacia él, sumando la DES de esas etapas
-Es una estimación de cuántas horas de parada inducida provocó en el resto de la línea,
-y es la puntuación con la que se ordenan las máquinas (comparable con el modelo ML).
+Es una estimación de cuántas horas de parada inducida provocó en el resto de la línea
+(dato informativo para la interfaz). No se usa para ordenar porque una zona larga con flechas
+débiles infla las horas aunque la evidencia sea poca.
 """
 from __future__ import annotations
 
@@ -86,9 +90,10 @@ def _analizar_periodo(g: pd.DataFrame) -> pd.DataFrame:
     out["zona_desde"] = np.where(es_cuello, g["Etapa"].to_numpy()[zona_ini], "")
     out["zona_hasta"] = np.where(es_cuello, g["Etapa"].to_numpy()[zona_fin], "")
 
-    # Ranking: primero los cuellos por horas inducidas, luego el resto por severidad
-    orden = out.assign(_c=~out["es_cuello"]).sort_values(
-        ["_c", "horas_inducidas", "severidad"], ascending=[True, False, False]
+    out["es_relevante"] = out["es_cuello"] & (out["severidad"] >= C.SEVERIDAD_MIN)
+    # Ranking: cuellos relevantes, luego cuellos débiles, luego el resto; dentro, por severidad
+    orden = out.assign(_r=~out["es_relevante"], _c=~out["es_cuello"]).sort_values(
+        ["_r", "_c", "severidad"], ascending=[True, True, False]
     ).index
     out.loc[orden, "rango_det"] = np.arange(1, m + 1)
     out["rango_det"] = out["rango_det"].astype(int)
@@ -112,6 +117,7 @@ def resumen_dias(det_dia: pd.DataFrame) -> pd.DataFrame:
     r = det_dia.groupby(["Etapa", "Orden_etapa"], as_index=False).agg(
         dias_cuello=("es_cuello", "sum"),
         dias_principal=("es_principal", "sum"),
+        dias_relevante=("es_relevante", "sum"),
         horas_inducidas_total=("horas_inducidas", "sum"),
         horas_inducidas_media=("horas_inducidas", "mean"),
         severidad_media=("severidad", "mean"),
@@ -119,4 +125,6 @@ def resumen_dias(det_dia: pd.DataFrame) -> pd.DataFrame:
     )
     r["pct_dias_cuello"] = r["dias_cuello"] / n
     r["pct_dias_principal"] = r["dias_principal"] / n
-    return r.sort_values(["horas_inducidas_total"], ascending=False).reset_index(drop=True)
+    r["pct_dias_relevante"] = r["dias_relevante"] / n
+    return r.sort_values(["dias_principal", "dias_relevante", "severidad_media"],
+                         ascending=False).reset_index(drop=True)
