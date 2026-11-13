@@ -21,6 +21,8 @@ Supuestos de negocio:
 - Tiempo abierto por día = 22 h (3 turnos de 8 h - 2 h de descanso para comer en montaje).
 - Estados: TBF (produciendo), TAP (parada propia), DES (desabastecimiento), SAT (saturación).
 - NAP = número de paradas propias, NPR = número de piezas producidas.
+- Tiempo sin estado registrado (criterio de HORSE): es producción salvo que ese día la máquina
+  produzca menos que su media; las piezas que faltan x horas por pieza pasan a parada propia.
 """
 from __future__ import annotations
 
@@ -489,6 +491,42 @@ def limpiar(ruta_datos: Path, ruta_config: Path, salida: Path) -> None:
                   valores={"piezas_mediana": g.NPR.median(), "ratio": r.median()})
     d = d.drop(columns="npr_linea")
 
+    # ---------- 7b. Reclasificación del tiempo sin registrar (regla de HORSE) ----------
+    # "Si la producción no cambia respecto a la media, el tiempo sin registrar es producción;
+    #  si la producción baja, la máquina ha dejado de funcionar."
+    # Aplicación proporcional: piezas que faltan respecto a la media de la máquina x horas por pieza
+    # = horas paradas (a TAP, como máximo el tiempo sin registrar); el resto pasa a TBF.
+    d["T_no_registrado_raw"] = d.T_no_registrado
+    d["TBF_desde_no_reg"] = 0.0
+    d["TAP_desde_no_reg"] = 0.0
+    aplicable = activas & ~d.flag_npr_invalido & (d.NPR > 0) & (d.T_no_registrado > 0)
+    por_op = {}
+    for op, g in d[activas & ~d.flag_npr_invalido & (d.NPR > 0)].groupby("Operacion"):
+        npr_media = g.NPR.mean()
+        h_pieza = (g.TBF + g.T_no_registrado).sum() / g.NPR.sum()   # ciclo si todo el hueco fuera producción
+        idx = g.index[aplicable[g.index]]
+        if not len(idx):
+            continue
+        faltan = (npr_media - d.loc[idx, "NPR"]).clip(lower=0)
+        a_tap = np.minimum(d.loc[idx, "T_no_registrado"], faltan * h_pieza)
+        a_tbf = d.loc[idx, "T_no_registrado"] - a_tap
+        d.loc[idx, "TAP_desde_no_reg"] = a_tap
+        d.loc[idx, "TBF_desde_no_reg"] = a_tbf
+        if d.loc[idx, "T_no_registrado"].mean() >= U["no_registrado_medio"]:
+            por_op[op] = {"npr_media": npr_media, "horas_por_pieza": h_pieza,
+                          "a_TBF_h_dia": a_tbf.sum() / len(g), "a_TAP_h_dia": a_tap.sum() / len(g)}
+    d["TBF"] += d.TBF_desde_no_reg
+    d["TAP"] += d.TAP_desde_no_reg
+    d.loc[aplicable, "T_no_registrado"] = 0.0
+    R.tec(categoria="reclasificacion_no_registrado", accion="reclasificado_a_TBF_TAP",
+          n_filas=int(aplicable.sum()),
+          descripcion="Regla de HORSE: el tiempo sin registrar es producción salvo que la máquina produzca "
+                      "menos que su media ese día. Las piezas que faltan x horas por pieza pasan a TAP y el "
+                      "resto a TBF (original en T_no_registrado_raw). No se aplica si el contador de piezas "
+                      "no es fiable.",
+          valores={"horas_a_TBF": d.TBF_desde_no_reg.sum(), "horas_a_TAP": d.TAP_desde_no_reg.sum(),
+                   "por_operacion": por_op})
+
     # ---------- 8. Resumen técnico de exclusiones ----------
     R.tec(categoria="reescalado", accion="reescalado_a_22h", n_filas=int(exceso.sum()),
           descripcion="Filas que superaban 22 h: estados reescalados proporcionalmente (originales en *_raw).",
@@ -502,7 +540,8 @@ def limpiar(ruta_datos: Path, ruta_config: Path, salida: Path) -> None:
         d[f"pct_{col}"] = 100 * d[col] / T
 
     columnas = (["Linea", "Year", "Week", "Jour", "Orden_OP", "Operacion", "Operacion_norm", "Tipo",
-                 "incluir_analisis"] + ESTADOS + ["TAI", "T_no_registrado", "NAP", "NPR"]
+                 "incluir_analisis"] + ESTADOS + ["TAI", "T_no_registrado", "NAP", "NPR",
+                                                  "T_no_registrado_raw", "TBF_desde_no_reg", "TAP_desde_no_reg"]
                 + [f"pct_{x}" for x in ESTADOS + ["TAI", "T_no_registrado"]]
                 + [f"{x}_raw" for x in ESTADOS] + ["T_total_raw", "flag_exceso_horas", "flag_defecto_horas",
                                                     "flag_tap_sospechoso", "flag_tap_outlier", "flag_npr_invalido",

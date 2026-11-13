@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-13T18:27:29",
+  "generado": "2026-11-13T19:50:06",
   "fuente": {
     "datos": "datos_hackaton.csv",
     "config": "config_hackaton.csv"
@@ -540,6 +540,111 @@
     },
     {
       "id": "LT-023",
+      "categoria": "reclasificacion_no_registrado",
+      "operacion": null,
+      "descripcion": "Regla de HORSE: el tiempo sin registrar es producción salvo que la máquina produzca menos que su media ese día. Las piezas que faltan x horas por pieza pasan a TAP y el resto a TBF (original en T_no_registrado_raw). No se aplica si el contador de piezas no es fiable.",
+      "accion": "reclasificado_a_TBF_TAP",
+      "dias": [],
+      "filas_afectadas": 1086,
+      "valores": {
+        "horas_a_TBF": 607.11,
+        "horas_a_TAP": 124.01,
+        "por_operacion": {
+          "PM-2020": {
+            "npr_media": 1531.75,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.91,
+            "a_TAP_h_dia": 0.16
+          },
+          "PM2120": {
+            "npr_media": 1521.69,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.92,
+            "a_TAP_h_dia": 0.16
+          },
+          "PM2150": {
+            "npr_media": 1531.25,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.06,
+            "a_TAP_h_dia": 0.15
+          },
+          "PM2190": {
+            "npr_media": 1532.75,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.98,
+            "a_TAP_h_dia": 0.17
+          },
+          "PM2200": {
+            "npr_media": 1535.31,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.88,
+            "a_TAP_h_dia": 0.16
+          },
+          "PM2230": {
+            "npr_media": 1534.5,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 2.34,
+            "a_TAP_h_dia": 0.15
+          },
+          "PM2300": {
+            "npr_media": 1540.44,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.33,
+            "a_TAP_h_dia": 0.17
+          },
+          "PM_2270": {
+            "npr_media": 1536.81,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.11,
+            "a_TAP_h_dia": 0.16
+          },
+          "PM_2310": {
+            "npr_media": 1538.88,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.84,
+            "a_TAP_h_dia": 0.16
+          },
+          "ST-0250": {
+            "npr_media": 1539.31,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.01,
+            "a_TAP_h_dia": 0.15
+          },
+          "ST-0260": {
+            "npr_media": 1545.06,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 3.59,
+            "a_TAP_h_dia": 0.17
+          },
+          "ST-0270": {
+            "npr_media": 1528.69,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 0.93,
+            "a_TAP_h_dia": 0.15
+          },
+          "ST-1000": {
+            "npr_media": 1502.94,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 2.44,
+            "a_TAP_h_dia": 0.18
+          },
+          "ST0261": {
+            "npr_media": 1568.94,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.2,
+            "a_TAP_h_dia": 0.18
+          },
+          "ST_0015": {
+            "npr_media": 1529.31,
+            "horas_por_pieza": 0.01,
+            "a_TBF_h_dia": 1.13,
+            "a_TAP_h_dia": 0.16
+          }
+        }
+      }
+    },
+    {
+      "id": "LT-024",
       "categoria": "reescalado",
       "operacion": null,
       "descripcion": "Filas que superaban 22 h: estados reescalados proporcionalmente (originales en *_raw).",
@@ -551,7 +656,7 @@
       }
     },
     {
-      "id": "LT-024",
+      "id": "LT-025",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST_0015",
       "descripcion": "Faltan de media 1.29 h/día sin estado (máx. 2.02 h).",
@@ -581,7 +686,7 @@
       }
     },
     {
-      "id": "LT-025",
+      "id": "LT-026",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST-0250",
       "descripcion": "Faltan de media 1.16 h/día sin estado (máx. 1.70 h).",
@@ -611,7 +716,7 @@
       }
     },
     {
-      "id": "LT-026",
+      "id": "LT-027",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST0261",
       "descripcion": "Faltan de media 1.38 h/día sin estado (máx. 1.92 h).",
@@ -641,7 +746,7 @@
       }
     },
     {
-      "id": "LT-027",
+      "id": "LT-028",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST-0260",
       "descripcion": "Faltan de media 3.76 h/día sin estado (máx. 4.35 h).",
@@ -671,7 +776,7 @@
       }
     },
     {
-      "id": "LT-028",
+      "id": "LT-029",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST-0270",
       "descripcion": "Faltan de media 1.08 h/día sin estado (máx. 1.19 h).",
@@ -701,7 +806,7 @@
       }
     },
     {
-      "id": "LT-029",
+      "id": "LT-030",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST-1000",
       "descripcion": "Faltan de media 2.62 h/día sin estado (máx. 3.41 h).",
@@ -731,7 +836,7 @@
       }
     },
     {
-      "id": "LT-030",
+      "id": "LT-031",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM-2020",
       "descripcion": "Faltan de media 1.06 h/día sin estado (máx. 1.39 h).",
@@ -761,7 +866,7 @@
       }
     },
     {
-      "id": "LT-031",
+      "id": "LT-032",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2120",
       "descripcion": "Faltan de media 1.08 h/día sin estado (máx. 1.76 h).",
@@ -791,7 +896,7 @@
       }
     },
     {
-      "id": "LT-032",
+      "id": "LT-033",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2150",
       "descripcion": "Faltan de media 1.22 h/día sin estado (máx. 2.13 h).",
@@ -821,7 +926,7 @@
       }
     },
     {
-      "id": "LT-033",
+      "id": "LT-034",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2190",
       "descripcion": "Faltan de media 1.15 h/día sin estado (máx. 2.54 h).",
@@ -851,7 +956,7 @@
       }
     },
     {
-      "id": "LT-034",
+      "id": "LT-035",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2200",
       "descripcion": "Faltan de media 1.04 h/día sin estado (máx. 1.60 h).",
@@ -881,7 +986,7 @@
       }
     },
     {
-      "id": "LT-035",
+      "id": "LT-036",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2230",
       "descripcion": "Faltan de media 2.49 h/día sin estado (máx. 4.43 h).",
@@ -911,7 +1016,7 @@
       }
     },
     {
-      "id": "LT-036",
+      "id": "LT-037",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM_2270",
       "descripcion": "Faltan de media 1.27 h/día sin estado (máx. 2.73 h).",
@@ -941,7 +1046,7 @@
       }
     },
     {
-      "id": "LT-037",
+      "id": "LT-038",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM2300",
       "descripcion": "Faltan de media 1.50 h/día sin estado (máx. 2.49 h).",
@@ -971,7 +1076,7 @@
       }
     },
     {
-      "id": "LT-038",
+      "id": "LT-039",
       "categoria": "tiempo_no_registrado",
       "operacion": "PM_2310",
       "descripcion": "Faltan de media 1.00 h/día sin estado (máx. 1.95 h).",
@@ -1001,7 +1106,7 @@
       }
     },
     {
-      "id": "LT-039",
+      "id": "LT-040",
       "categoria": "tiempo_no_registrado",
       "operacion": "ST_3300",
       "descripcion": "Faltan de media 0.80 h/día sin estado (máx. 5.12 h).",
