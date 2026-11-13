@@ -19,6 +19,7 @@ from . import config as C
 
 TIEMPOS = ["TBF", "TAP", "DES", "SAT", "T_no_registrado"]
 CONTADORES = ["NAP", "NPR"]
+FLAGS = ["dia_tap_dudoso", "dia_averia_atipica", "dia_npr_invalido"]
 
 
 def cargar(dir_limpios: Path = C.DIR_LIMPIOS) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -33,6 +34,10 @@ def cargar(dir_limpios: Path = C.DIR_LIMPIOS) -> tuple[pd.DataFrame, pd.DataFram
     datos["Dia"] = "S" + datos["Week"].astype(str) + "-D" + datos["Jour"].astype(str)
     # Piezas no fiables: no se usan para ratios por pieza (Tcy, Fpm)
     datos.loc[datos["flag_npr_invalido"], "NPR"] = np.nan
+    # Días con parada propia no fiable (sensor sospechoso) o con una avería anormalmente larga
+    datos["dia_tap_dudoso"] = datos["flag_tap_sospechoso"]
+    datos["dia_averia_atipica"] = datos["flag_tap_outlier"]
+    datos["dia_npr_invalido"] = datos["flag_npr_invalido"]
     return datos, config, registro
 
 
@@ -74,7 +79,9 @@ def por_etapa_dia(datos: pd.DataFrame, mapa: pd.DataFrame) -> pd.DataFrame:
     """Una fila por (Dia, Etapa). Paralelos: tiempos medios, NAP/NPR sumados."""
     d = datos.merge(mapa[["Operacion_norm", "Etapa"]], on="Operacion_norm")
     agg = {c: "mean" for c in TIEMPOS} | {c: lambda s: s.sum(min_count=1) for c in CONTADORES}
+    agg |= {f: "max" for f in FLAGS}
     out = d.groupby(["Week", "Jour", "Dia", "Etapa"], as_index=False).agg(agg)
+    out[FLAGS] = out[FLAGS].astype(int)
     info = mapa.drop_duplicates("Etapa")[["Etapa", "Orden_etapa", "Tipo", "en_cadena", "n_paralelo"]]
     out = out.merge(info, on="Etapa")
     out["TAI"] = out["DES"] + out["SAT"]
@@ -92,7 +99,7 @@ def agregar(etapa_dia: pd.DataFrame, nivel: str) -> pd.DataFrame:
         out.insert(0, "Periodo", out["Dia"])
         out["n_dias"] = 1
     elif nivel == "global":
-        agg = {c: "sum" for c in TIEMPOS + ["TAI"]} | {c: lambda s: s.sum(min_count=1) for c in CONTADORES}
+        agg = {c: "sum" for c in TIEMPOS + ["TAI"] + FLAGS} | {c: lambda s: s.sum(min_count=1) for c in CONTADORES}
         agg |= {"Dia": "nunique", "Orden_etapa": "first", "Tipo": "first",
                 "en_cadena": "first", "n_paralelo": "first"}
         out = etapa_dia.groupby("Etapa", as_index=False).agg(agg).rename(columns={"Dia": "n_dias"})
