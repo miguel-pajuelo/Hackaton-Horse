@@ -1,7 +1,7 @@
 Linea,Operacion,Orden_OP,Operacion_norm,Tipo,incluir_analisis,motivo_exclusion
 VLL_MONTAJE_L5,ST_0015,1,ST_0015,Estación (ST),True,
 VLL_MONTAJE_L5,ST_0020,2,ST_0020,Estación (ST),True,
-VLL_MONTAJE_L5,ST_0030,3,ST_0030,Estación (ST),False,Sin datos: todos los estados a 0 en todos los días productivos (inactiva/puenteada)
+VLL_MONTAJE_L5,ST_0030,3,ST_0030,Estación (ST),False,máquina sin datos
 VLL_MONTAJE_L5,ST_0040,4,ST_0040,Estación (ST),True,
 VLL_MONTAJE_L5,ST-0050,5,ST_0050,Estación (ST),True,
 VLL_MONTAJE_L5,PM_0090,6,PM_0090,Puesto manual (PM),True,
@@ -47,7 +47,7 @@ VLL_MONTAJE_L5,ST-2096,45,ST_2096,Estación (ST),True,
 VLL_MONTAJE_L5,ST-2100,46,ST_2100,Estación (ST),True,
 VLL_MONTAJE_L5,PM2110,47,PM_2110,Puesto manual (PM),True,
 VLL_MONTAJE_L5,PM2120,48,PM_2120,Puesto manual (PM),True,
-VLL_MONTAJE_L5,PM2130,49,PM_2130,Puesto manual (PM),False,TAP = 22 h todos los días y 0 piezas mientras la línea produce: fuera de servicio
+VLL_MONTAJE_L5,PM2130,49,PM_2130,Puesto manual (PM),False,máquina siempre en parada
 VLL_MONTAJE_L5,ST2135,50,ST_2135,Estación (ST),True,
 VLL_MONTAJE_L5,PM2140,51,PM_2140,Puesto manual (PM),True,
 VLL_MONTAJE_L5,PM2150,52,PM_2150,Puesto manual (PM),True,
@@ -84,9 +84,9 @@ VLL_MONTAJE_L5,ST_3100,82,ST_3100,Estación (ST),True,
 VLL_MONTAJE_L5,ST3100_2,83,ST_3100_2,Estación (ST),True,
 VLL_MONTAJE_L5,ST_3300,84,ST_3300,Estación (ST),True,
 VLL_MONTAJE_L5,ManBM1_1,85,ManBM1_1,Manutención / auxiliar,True,
-VLL_MONTAJE_L5,Ma_BM1_2,86,Ma_BM1_2,Manutención / auxiliar,False,"Siempre TBF = 22 h, 0 piezas, sin DES/SAT: contador de manutención no informativo"
-VLL_MONTAJE_L5,ManBM2_1,87,ManBM2_1,Manutención / auxiliar,False,"0 piezas, sin DES/SAT y TAP errático (hasta 22 h con la línea produciendo)"
+VLL_MONTAJE_L5,Ma_BM1_2,86,Ma_BM1_2,Manutención / auxiliar,False,señal de estado bloqueada
+VLL_MONTAJE_L5,ManBM2_1,87,ManBM2_1,Manutención / auxiliar,False,sin señal de piezas ni de esperas
 VLL_MONTAJE_L5,Ma_BM2_2,88,Ma_BM2_2,Manutención / auxiliar,True,
-VLL_MONTAJE_L5,Ma_VES_0,89,Ma_VES_0,Manutención / auxiliar,False,"Siempre TBF = 22 h, 0 piezas, sin DES/SAT: contador de manutención no informativo"
-VLL_MONTAJE_L5,Ma_VESRE,90,Ma_VESRE,Manutención / auxiliar,False,"Siempre TBF = 22 h, 0 piezas, sin DES/SAT: contador de manutención no informativo"
+VLL_MONTAJE_L5,Ma_VES_0,89,Ma_VES_0,Manutención / auxiliar,False,señal de estado bloqueada
+VLL_MONTAJE_L5,Ma_VESRE,90,Ma_VESRE,Manutención / auxiliar,False,señal de estado bloqueada
 VLL_MONTAJE_L5,MANOP749,91,MANOP749,Manutención / auxiliar,True,

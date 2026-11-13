@@ -1,0 +1,1307 @@
+{
+  "generado": "2026-11-13T18:27:29",
+  "linea": "VLL_MONTAJE_L5",
+  "periodo": {
+    "desde": "S40-D2",
+    "hasta": "S43-D5",
+    "dias_productivos": 16
+  },
+  "resumen": {
+    "errores": 11,
+    "advertencias": 11,
+    "maquinas_afectadas": 20,
+    "maquinas_excluidas_del_analisis": [
+      "Ma_BM1_2",
+      "Ma_VESRE",
+      "Ma_VES_0",
+      "ManBM2_1",
+      "PM2130",
+      "ST_0030"
+    ]
+  },
+  "alertas": [
+    {
+      "id": "AL-001",
+      "nivel": "error",
+      "categoria": "maquina_sin_datos",
+      "operacion": "ST_0030",
+      "orden_op": 3,
+      "titulo": "Error proceso ST_0030: máquina sin datos",
+      "resumen": "No registra ningún estado en 100% de los días productivos",
+      "detalle": {
+        "efecto_observado": "Producción, paradas y esperas a 0 h todos los días mientras el resto de la línea trabaja.",
+        "causa_probable": "Sin comunicación entre la máquina y el sistema de captura.",
+        "otras_causas_posibles": [
+          "Estación inactiva o puenteada (bypass) en el flujo",
+          "Operación dada de alta en la configuración pero no instalada"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 0.0,
+          "horas_parada_propia_media": 0.0,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-002",
+      "nivel": "error",
+      "categoria": "tiempos_duplicados",
+      "operacion": "PM_0110",
+      "orden_op": 9,
+      "titulo": "Error proceso PM_0110: registro de tiempos duplicado",
+      "resumen": "Registra más de 24 h de actividad en 1 día(s) (máx. 24.42 h)",
+      "detalle": {
+        "efecto_observado": "Producción + paradas + esperas suman hasta 24.42 h en un día, cuando un día no puede tener más de 24 h.",
+        "causa_probable": "El mismo intervalo se registra en dos estados a la vez (medida duplicada).",
+        "otras_causas_posibles": [
+          "Registro doble en el cambio de turno o al reiniciar el PLC/SCADA",
+          "Error de reloj de la máquina al agregar por día"
+        ],
+        "impacto_en_el_analisis": "Los tiempos de esos días se han reescalado a 22 h manteniendo la proporción entre estados.",
+        "recomendacion": "Revisar la configuración de estados de la máquina en el sistema de captura.",
+        "dias_afectados": [
+          "S41-D1"
+        ],
+        "datos": {
+          "horas_maximas_posibles": 24.0,
+          "horas_abiertas": 22.0,
+          "por_dia": [
+            {
+              "dia": "S41-D1",
+              "horas_registradas": 24.42,
+              "produccion_h": 21.28,
+              "parada_propia_h": 1.07,
+              "desabastecimiento_h": 1.28,
+              "saturacion_h": 0.79
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-003",
+      "nivel": "error",
+      "categoria": "contador_piezas_defectuoso",
+      "operacion": "ST-0295",
+      "orden_op": 25,
+      "titulo": "Error proceso ST-0295: contador de piezas defectuoso",
+      "resumen": "Cuenta 3 piezas/día estando 19.0 h/día en producción",
+      "detalle": {
+        "efecto_observado": "La línea produce ~1529 piezas/día y todas pasan por esta máquina, pero su contador solo registra 3.",
+        "causa_probable": "Contador de piezas roto o desconectado.",
+        "otras_causas_posibles": [
+          "El contador registra otro evento (p.ej. rechazos) en vez de piezas buenas"
+        ],
+        "impacto_en_el_analisis": "Sus piezas no se usan; sus tiempos de producción y paradas sí.",
+        "recomendacion": "Revisar o sustituir el contador de piezas.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "piezas_dia_media": 2.56,
+          "piezas_linea_dia": 1529.31,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "piezas_maquina": 1,
+              "piezas_linea": 1503.0,
+              "produccion_h": 18.92
+            },
+            {
+              "dia": "S40-D3",
+              "piezas_maquina": 0,
+              "piezas_linea": 1507.0,
+              "produccion_h": 18.86
+            },
+            {
+              "dia": "S40-D4",
+              "piezas_maquina": 4,
+              "piezas_linea": 1492.0,
+              "produccion_h": 18.68
+            },
+            {
+              "dia": "S40-D5",
+              "piezas_maquina": 2,
+              "piezas_linea": 1507.0,
+              "produccion_h": 18.87
+            },
+            {
+              "dia": "S41-D1",
+              "piezas_maquina": 0,
+              "piezas_linea": 1514.0,
+              "produccion_h": 19.44
+            },
+            {
+              "dia": "S41-D2",
+              "piezas_maquina": 0,
+              "piezas_linea": 1535.0,
+              "produccion_h": 19.32
+            },
+            {
+              "dia": "S41-D3",
+              "piezas_maquina": 4,
+              "piezas_linea": 1549.0,
+              "produccion_h": 19.33
+            },
+            {
+              "dia": "S41-D4",
+              "piezas_maquina": 1,
+              "piezas_linea": 1561.0,
+              "produccion_h": 19.04
+            },
+            {
+              "dia": "S42-D2",
+              "piezas_maquina": 4,
+              "piezas_linea": 1512.0,
+              "produccion_h": 18.64
+            },
+            {
+              "dia": "S42-D3",
+              "piezas_maquina": 1,
+              "piezas_linea": 1519.0,
+              "produccion_h": 19.02
+            },
+            {
+              "dia": "S42-D4",
+              "piezas_maquina": 1,
+              "piezas_linea": 1552.0,
+              "produccion_h": 18.86
+            },
+            {
+              "dia": "S43-D1",
+              "piezas_maquina": 10,
+              "piezas_linea": 1499.0,
+              "produccion_h": 18.43
+            },
+            {
+              "dia": "S43-D2",
+              "piezas_maquina": 3,
+              "piezas_linea": 1522.0,
+              "produccion_h": 18.63
+            },
+            {
+              "dia": "S43-D3",
+              "piezas_maquina": 3,
+              "piezas_linea": 1593.0,
+              "produccion_h": 19.26
+            },
+            {
+              "dia": "S43-D4",
+              "piezas_maquina": 2,
+              "piezas_linea": 1530.0,
+              "produccion_h": 18.9
+            },
+            {
+              "dia": "S43-D5",
+              "piezas_maquina": 5,
+              "piezas_linea": 1574.0,
+              "produccion_h": 19.23
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-004",
+      "nivel": "error",
+      "categoria": "contador_piezas_excesivo",
+      "operacion": "ST2235",
+      "orden_op": 61,
+      "titulo": "Error proceso ST2235: sensor de piezas defectuoso (cuenta de más)",
+      "resumen": "Cuenta 2391 piezas/día, un 57 % más que la línea (~1520)",
+      "detalle": {
+        "efecto_observado": "Ninguna máquina de una línea en serie puede producir más que la propia línea; esta llega a 2468 piezas en un día.",
+        "causa_probable": "Medida duplicada: el sensor cuenta cada pieza más de una vez.",
+        "otras_causas_posibles": [
+          "La operación cuenta subconjuntos o componentes y no motores",
+          "Piezas retrabajadas que vuelven a pasar y se recuentan"
+        ],
+        "impacto_en_el_analisis": "Sus piezas no se usan para calcular la producción; sus tiempos sí.",
+        "recomendacion": "Confirmar qué cuenta el sensor y revisar si hay doble conteo.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "piezas_dia_mediana": 2391.0,
+          "piezas_linea_dia": 1520.5,
+          "exceso_pct": 57.25,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "piezas_maquina": 2405,
+              "piezas_linea": 1503.0
+            },
+            {
+              "dia": "S40-D3",
+              "piezas_maquina": 2355,
+              "piezas_linea": 1507.0
+            },
+            {
+              "dia": "S40-D4",
+              "piezas_maquina": 2296,
+              "piezas_linea": 1492.0
+            },
+            {
+              "dia": "S40-D5",
+              "piezas_maquina": 2347,
+              "piezas_linea": 1507.0
+            },
+            {
+              "dia": "S41-D1",
+              "piezas_maquina": 2338,
+              "piezas_linea": 1514.0
+            },
+            {
+              "dia": "S41-D2",
+              "piezas_maquina": 2387,
+              "piezas_linea": 1535.0
+            },
+            {
+              "dia": "S41-D3",
+              "piezas_maquina": 2422,
+              "piezas_linea": 1549.0
+            },
+            {
+              "dia": "S41-D4",
+              "piezas_maquina": 2455,
+              "piezas_linea": 1561.0
+            },
+            {
+              "dia": "S42-D2",
+              "piezas_maquina": 2468,
+              "piezas_linea": 1512.0
+            },
+            {
+              "dia": "S42-D3",
+              "piezas_maquina": 2425,
+              "piezas_linea": 1519.0
+            },
+            {
+              "dia": "S42-D4",
+              "piezas_maquina": 2430,
+              "piezas_linea": 1552.0
+            },
+            {
+              "dia": "S43-D1",
+              "piezas_maquina": 2323,
+              "piezas_linea": 1499.0
+            },
+            {
+              "dia": "S43-D2",
+              "piezas_maquina": 2331,
+              "piezas_linea": 1522.0
+            },
+            {
+              "dia": "S43-D3",
+              "piezas_maquina": 2395,
+              "piezas_linea": 1593.0
+            },
+            {
+              "dia": "S43-D4",
+              "piezas_maquina": 2329,
+              "piezas_linea": 1530.0
+            },
+            {
+              "dia": "S43-D5",
+              "piezas_maquina": 2402,
+              "piezas_linea": 1574.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-005",
+      "nivel": "error",
+      "categoria": "sensor_paradas_defectuoso",
+      "operacion": "ST2235",
+      "orden_op": 61,
+      "titulo": "Error proceso ST2235: sensor de paradas defectuoso",
+      "resumen": "Registra hasta 23.022 paradas al día (una cada 3 s)",
+      "detalle": {
+        "efecto_observado": "Cuenta de media 22.022 paradas/día frente a 31 de mediana en la línea. y aun así produce 2.382 piezas/día con 14.8 h/día de parada propia. Una máquina tan parada no podría producir eso.",
+        "causa_probable": "Sensor que parpadea (rebotes de señal) y genera microparadas falsas.",
+        "otras_causas_posibles": [
+          "Umbral de microparada mal configurado (cuenta como parada cualquier hueco de ciclo)"
+        ],
+        "impacto_en_el_analisis": "Su parada propia está inflada: no se tiene en cuenta para señalarla como máquina crítica.",
+        "recomendacion": "Revisar el sensor de estado y el umbral de microparada de la máquina.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "paradas_dia_media": 22022.19,
+          "paradas_dia_max": 23022,
+          "paradas_dia_mediana_linea": 31.0,
+          "parada_propia_h_media": 14.81,
+          "parada_propia_h_mediana_linea": 0.28,
+          "piezas_dia_media": 2381.75,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "paradas": 21654,
+              "parada_propia_h": 14.73,
+              "piezas": 2405
+            },
+            {
+              "dia": "S40-D3",
+              "paradas": 21568,
+              "parada_propia_h": 14.63,
+              "piezas": 2355
+            },
+            {
+              "dia": "S40-D4",
+              "paradas": 23022,
+              "parada_propia_h": 14.92,
+              "piezas": 2296
+            },
+            {
+              "dia": "S40-D5",
+              "paradas": 22411,
+              "parada_propia_h": 14.91,
+              "piezas": 2347
+            },
+            {
+              "dia": "S41-D1",
+              "paradas": 20931,
+              "parada_propia_h": 14.43,
+              "piezas": 2338
+            },
+            {
+              "dia": "S41-D2",
+              "paradas": 21419,
+              "parada_propia_h": 14.65,
+              "piezas": 2387
+            },
+            {
+              "dia": "S41-D3",
+              "paradas": 22158,
+              "parada_propia_h": 14.65,
+              "piezas": 2422
+            },
+            {
+              "dia": "S41-D4",
+              "paradas": 22185,
+              "parada_propia_h": 14.59,
+              "piezas": 2455
+            },
+            {
+              "dia": "S42-D2",
+              "paradas": 22281,
+              "parada_propia_h": 15.24,
+              "piezas": 2468
+            },
+            {
+              "dia": "S42-D3",
+              "paradas": 21854,
+              "parada_propia_h": 14.7,
+              "piezas": 2425
+            },
+            {
+              "dia": "S42-D4",
+              "paradas": 22415,
+              "parada_propia_h": 15.01,
+              "piezas": 2430
+            },
+            {
+              "dia": "S43-D1",
+              "paradas": 22877,
+              "parada_propia_h": 15.13,
+              "piezas": 2323
+            },
+            {
+              "dia": "S43-D2",
+              "paradas": 21701,
+              "parada_propia_h": 14.86,
+              "piezas": 2331
+            },
+            {
+              "dia": "S43-D3",
+              "paradas": 21730,
+              "parada_propia_h": 14.7,
+              "piezas": 2395
+            },
+            {
+              "dia": "S43-D4",
+              "paradas": 21950,
+              "parada_propia_h": 14.78,
+              "piezas": 2329
+            },
+            {
+              "dia": "S43-D5",
+              "paradas": 22199,
+              "parada_propia_h": 15.02,
+              "piezas": 2402
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-006",
+      "nivel": "error",
+      "categoria": "tiempos_duplicados",
+      "operacion": "ST2376",
+      "orden_op": 72,
+      "titulo": "Error proceso ST2376: registro de tiempos duplicado",
+      "resumen": "Registra más de 24 h de actividad en 2 día(s) (máx. 24.21 h)",
+      "detalle": {
+        "efecto_observado": "Producción + paradas + esperas suman hasta 24.21 h en un día, cuando un día no puede tener más de 24 h.",
+        "causa_probable": "El mismo intervalo se registra en dos estados a la vez (medida duplicada).",
+        "otras_causas_posibles": [
+          "Registro doble en el cambio de turno o al reiniciar el PLC/SCADA",
+          "Error de reloj de la máquina al agregar por día"
+        ],
+        "impacto_en_el_analisis": "Los tiempos de esos días se han reescalado a 22 h manteniendo la proporción entre estados.",
+        "recomendacion": "Revisar la configuración de estados de la máquina en el sistema de captura.",
+        "dias_afectados": [
+          "S41-D4",
+          "S43-D1"
+        ],
+        "datos": {
+          "horas_maximas_posibles": 24.0,
+          "horas_abiertas": 22.0,
+          "por_dia": [
+            {
+              "dia": "S41-D4",
+              "horas_registradas": 24.21,
+              "produccion_h": 22.78,
+              "parada_propia_h": 0.52,
+              "desabastecimiento_h": 0.7,
+              "saturacion_h": 0.21
+            },
+            {
+              "dia": "S43-D1",
+              "horas_registradas": 24.08,
+              "produccion_h": 21.77,
+              "parada_propia_h": 1.42,
+              "desabastecimiento_h": 0.22,
+              "saturacion_h": 0.67
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-007",
+      "nivel": "error",
+      "categoria": "contador_piezas_excesivo",
+      "operacion": "ST_3300",
+      "orden_op": 84,
+      "titulo": "Error proceso ST_3300: sensor de piezas defectuoso (cuenta de más)",
+      "resumen": "Cuenta 2450 piezas/día, un 61 % más que la línea (~1520)",
+      "detalle": {
+        "efecto_observado": "Ninguna máquina de una línea en serie puede producir más que la propia línea; esta llega a 3314 piezas en un día.",
+        "causa_probable": "Medida duplicada: el sensor cuenta cada pieza más de una vez.",
+        "otras_causas_posibles": [
+          "La operación cuenta subconjuntos o componentes y no motores",
+          "Piezas retrabajadas que vuelven a pasar y se recuentan"
+        ],
+        "impacto_en_el_analisis": "Sus piezas no se usan para calcular la producción; sus tiempos sí.",
+        "recomendacion": "Confirmar qué cuenta el sensor y revisar si hay doble conteo.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "piezas_dia_mediana": 2449.5,
+          "piezas_linea_dia": 1520.5,
+          "exceso_pct": 61.1,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "piezas_maquina": 2231,
+              "piezas_linea": 1503.0
+            },
+            {
+              "dia": "S40-D3",
+              "piezas_maquina": 3016,
+              "piezas_linea": 1507.0
+            },
+            {
+              "dia": "S40-D4",
+              "piezas_maquina": 2223,
+              "piezas_linea": 1492.0
+            },
+            {
+              "dia": "S40-D5",
+              "piezas_maquina": 2165,
+              "piezas_linea": 1507.0
+            },
+            {
+              "dia": "S41-D1",
+              "piezas_maquina": 2253,
+              "piezas_linea": 1514.0
+            },
+            {
+              "dia": "S41-D2",
+              "piezas_maquina": 2387,
+              "piezas_linea": 1535.0
+            },
+            {
+              "dia": "S41-D3",
+              "piezas_maquina": 2481,
+              "piezas_linea": 1549.0
+            },
+            {
+              "dia": "S41-D4",
+              "piezas_maquina": 2605,
+              "piezas_linea": 1561.0
+            },
+            {
+              "dia": "S42-D2",
+              "piezas_maquina": 2691,
+              "piezas_linea": 1512.0
+            },
+            {
+              "dia": "S42-D3",
+              "piezas_maquina": 2369,
+              "piezas_linea": 1519.0
+            },
+            {
+              "dia": "S42-D4",
+              "piezas_maquina": 2291,
+              "piezas_linea": 1552.0
+            },
+            {
+              "dia": "S43-D1",
+              "piezas_maquina": 3314,
+              "piezas_linea": 1499.0
+            },
+            {
+              "dia": "S43-D2",
+              "piezas_maquina": 2418,
+              "piezas_linea": 1522.0
+            },
+            {
+              "dia": "S43-D3",
+              "piezas_maquina": 2629,
+              "piezas_linea": 1593.0
+            },
+            {
+              "dia": "S43-D4",
+              "piezas_maquina": 2972,
+              "piezas_linea": 1530.0
+            },
+            {
+              "dia": "S43-D5",
+              "piezas_maquina": 3079,
+              "piezas_linea": 1574.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-008",
+      "nivel": "error",
+      "categoria": "tiempos_duplicados",
+      "operacion": "ST_3300",
+      "orden_op": 84,
+      "titulo": "Error proceso ST_3300: registro de tiempos duplicado",
+      "resumen": "Registra más de 24 h de actividad en 3 día(s) (máx. 26.44 h)",
+      "detalle": {
+        "efecto_observado": "Producción + paradas + esperas suman hasta 26.44 h en un día, cuando un día no puede tener más de 24 h.",
+        "causa_probable": "El mismo intervalo se registra en dos estados a la vez (medida duplicada).",
+        "otras_causas_posibles": [
+          "Registro doble en el cambio de turno o al reiniciar el PLC/SCADA",
+          "Error de reloj de la máquina al agregar por día"
+        ],
+        "impacto_en_el_analisis": "Los tiempos de esos días se han reescalado a 22 h manteniendo la proporción entre estados.",
+        "recomendacion": "Revisar la configuración de estados de la máquina en el sistema de captura.",
+        "dias_afectados": [
+          "S41-D3",
+          "S42-D3",
+          "S43-D4"
+        ],
+        "datos": {
+          "horas_maximas_posibles": 24.0,
+          "horas_abiertas": 22.0,
+          "por_dia": [
+            {
+              "dia": "S41-D3",
+              "horas_registradas": 26.3,
+              "produccion_h": 18.04,
+              "parada_propia_h": 0.03,
+              "desabastecimiento_h": 8.23,
+              "saturacion_h": 0.0
+            },
+            {
+              "dia": "S42-D3",
+              "horas_registradas": 26.44,
+              "produccion_h": 18.72,
+              "parada_propia_h": 0.04,
+              "desabastecimiento_h": 7.68,
+              "saturacion_h": 0.0
+            },
+            {
+              "dia": "S43-D4",
+              "horas_registradas": 24.15,
+              "produccion_h": 16.92,
+              "parada_propia_h": 0.11,
+              "desabastecimiento_h": 7.12,
+              "saturacion_h": 0.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-009",
+      "nivel": "error",
+      "categoria": "senal_estado_bloqueada",
+      "operacion": "Ma_BM1_2",
+      "orden_op": 86,
+      "titulo": "Error proceso Ma_BM1_2: señal de estado bloqueada",
+      "resumen": "Marca 'produciendo' las 22 h todos los días sin contar ninguna pieza",
+      "detalle": {
+        "efecto_observado": "Nunca para, nunca espera y nunca cuenta piezas: la señal no cambia.",
+        "causa_probable": "Señal de marcha forzada o sensor de estado roto.",
+        "otras_causas_posibles": [
+          "Elemento de manutención (transportador) que no procesa piezas"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 21.98,
+          "horas_parada_propia_media": 0.01,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-010",
+      "nivel": "error",
+      "categoria": "senal_estado_bloqueada",
+      "operacion": "Ma_VES_0",
+      "orden_op": 89,
+      "titulo": "Error proceso Ma_VES_0: señal de estado bloqueada",
+      "resumen": "Marca 'produciendo' las 22 h todos los días sin contar ninguna pieza",
+      "detalle": {
+        "efecto_observado": "Nunca para, nunca espera y nunca cuenta piezas: la señal no cambia.",
+        "causa_probable": "Señal de marcha forzada o sensor de estado roto.",
+        "otras_causas_posibles": [
+          "Elemento de manutención (transportador) que no procesa piezas"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 21.99,
+          "horas_parada_propia_media": 0.0,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-011",
+      "nivel": "error",
+      "categoria": "senal_estado_bloqueada",
+      "operacion": "Ma_VESRE",
+      "orden_op": 90,
+      "titulo": "Error proceso Ma_VESRE: señal de estado bloqueada",
+      "resumen": "Marca 'produciendo' las 22 h todos los días sin contar ninguna pieza",
+      "detalle": {
+        "efecto_observado": "Nunca para, nunca espera y nunca cuenta piezas: la señal no cambia.",
+        "causa_probable": "Señal de marcha forzada o sensor de estado roto.",
+        "otras_causas_posibles": [
+          "Elemento de manutención (transportador) que no procesa piezas"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 21.99,
+          "horas_parada_propia_media": 0.01,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-012",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "ST_0100",
+      "orden_op": 8,
+      "titulo": "Advertencia proceso ST_0100: parada propia anormalmente larga",
+      "resumen": "6.4 h de parada propia el S42-D4 (lo normal en esta máquina: 1.6 h/día)",
+      "detalle": {
+        "efecto_observado": "En 1 día(s) la parada propia multiplica por 4 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S42-D4"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 1.56,
+          "limite_atipico_h": 3.59,
+          "por_dia": [
+            {
+              "dia": "S42-D4",
+              "parada_propia_h": 6.42,
+              "paradas": 82,
+              "piezas": 1548
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-013",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "ST-0300",
+      "orden_op": 26,
+      "titulo": "Advertencia proceso ST-0300: parada propia anormalmente larga",
+      "resumen": "6.9 h de parada propia el S40-D3 (lo normal en esta máquina: 0.4 h/día)",
+      "detalle": {
+        "efecto_observado": "En 3 día(s) la parada propia multiplica por 18 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S41-D1"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 0.38,
+          "limite_atipico_h": 1.7,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "parada_propia_h": 2.99,
+              "paradas": 16,
+              "piezas": 1521
+            },
+            {
+              "dia": "S40-D3",
+              "parada_propia_h": 6.87,
+              "paradas": 16,
+              "piezas": 1510
+            },
+            {
+              "dia": "S41-D1",
+              "parada_propia_h": 3.1,
+              "paradas": 7,
+              "piezas": 1526
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-014",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "ST-2050",
+      "orden_op": 41,
+      "titulo": "Advertencia proceso ST-2050: parada propia anormalmente larga",
+      "resumen": "2.6 h de parada propia el S43-D3 (lo normal en esta máquina: 0.7 h/día)",
+      "detalle": {
+        "efecto_observado": "En 1 día(s) la parada propia multiplica por 4 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S43-D3"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 0.7,
+          "limite_atipico_h": 1.77,
+          "por_dia": [
+            {
+              "dia": "S43-D3",
+              "parada_propia_h": 2.64,
+              "paradas": 43,
+              "piezas": 1572
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-015",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "PM2120",
+      "orden_op": 48,
+      "titulo": "Advertencia proceso PM2120: parada propia anormalmente larga",
+      "resumen": "2.8 h de parada propia el S40-D2 (lo normal en esta máquina: 0.8 h/día)",
+      "detalle": {
+        "efecto_observado": "En 1 día(s) la parada propia multiplica por 4 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S40-D2"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 0.8,
+          "limite_atipico_h": 2.38,
+          "por_dia": [
+            {
+              "dia": "S40-D2",
+              "parada_propia_h": 2.82,
+              "paradas": 112,
+              "piezas": 1500
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-016",
+      "nivel": "advertencia",
+      "categoria": "maquina_siempre_parada",
+      "operacion": "PM2130",
+      "orden_op": 49,
+      "titulo": "Advertencia proceso PM2130: máquina siempre en parada",
+      "resumen": "Parada propia de 22 h en el 94% de los días y 0 piezas",
+      "detalle": {
+        "efecto_observado": "Marca parada propia todo el día mientras la línea produce ~1520 piezas/día. En una línea en serie esto solo es posible si las piezas no pasan por ella.",
+        "causa_probable": "Máquina fuera de servicio o puenteada.",
+        "otras_causas_posibles": [
+          "Señal de parada bloqueada (sensor roto o fallo permanente)",
+          "Operación sustituida por otra y no dada de baja en la configuración"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 0.0,
+          "horas_parada_propia_media": 21.99,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-017",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "ST2135",
+      "orden_op": 50,
+      "titulo": "Advertencia proceso ST2135: parada propia anormalmente larga",
+      "resumen": "4.3 h de parada propia el S42-D3 (lo normal en esta máquina: 0.7 h/día)",
+      "detalle": {
+        "efecto_observado": "En 2 día(s) la parada propia multiplica por 6 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S41-D1",
+          "S42-D3"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 0.71,
+          "limite_atipico_h": 1.91,
+          "por_dia": [
+            {
+              "dia": "S41-D1",
+              "parada_propia_h": 2.53,
+              "paradas": 158,
+              "piezas": 1502
+            },
+            {
+              "dia": "S42-D3",
+              "parada_propia_h": 4.32,
+              "paradas": 25,
+              "piezas": 1552
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-018",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "PM2250",
+      "orden_op": 63,
+      "titulo": "Advertencia proceso PM2250: parada propia anormalmente larga",
+      "resumen": "9.5 h de parada propia el S43-D4 (lo normal en esta máquina: 1.5 h/día)",
+      "detalle": {
+        "efecto_observado": "En 1 día(s) la parada propia multiplica por 6 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S43-D4"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 1.52,
+          "limite_atipico_h": 8.72,
+          "por_dia": [
+            {
+              "dia": "S43-D4",
+              "parada_propia_h": 9.53,
+              "paradas": 24,
+              "piezas": 1526
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-019",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "ST-0840",
+      "orden_op": 80,
+      "titulo": "Advertencia proceso ST-0840: parada propia anormalmente larga",
+      "resumen": "4.7 h de parada propia el S42-D4 (lo normal en esta máquina: 0.2 h/día)",
+      "detalle": {
+        "efecto_observado": "En 1 día(s) la parada propia multiplica por 20 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S42-D4"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 0.23,
+          "limite_atipico_h": 0.76,
+          "por_dia": [
+            {
+              "dia": "S42-D4",
+              "parada_propia_h": 4.73,
+              "paradas": 79,
+              "piezas": 1263
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-020",
+      "nivel": "advertencia",
+      "categoria": "maquina_sin_trazabilidad",
+      "operacion": "ManBM2_1",
+      "orden_op": 87,
+      "titulo": "Advertencia proceso ManBM2_1: sin señal de piezas ni de esperas",
+      "resumen": "0 piezas y ninguna espera, con 14.3 h/día de parada propia de media",
+      "detalle": {
+        "efecto_observado": "No cuenta piezas ni registra desabastecimiento o saturación; solo alterna entre producción y parada propia de forma irregular.",
+        "causa_probable": "Elemento auxiliar sin contador de piezas y con estados inducidos sin configurar.",
+        "otras_causas_posibles": [
+          "Sensor de piezas roto",
+          "Señal de parada errática"
+        ],
+        "impacto_en_el_analisis": "Excluida del análisis de máquinas críticas: sus datos no son fiables.",
+        "recomendacion": "Confirmar con mantenimiento si la máquina está en el flujo y revisar su señal en el sistema de captura.",
+        "dias_afectados": [
+          "S40-D2",
+          "S40-D3",
+          "S40-D4",
+          "S40-D5",
+          "S41-D1",
+          "S41-D2",
+          "S41-D3",
+          "S41-D4",
+          "S42-D2",
+          "S42-D3",
+          "S42-D4",
+          "S43-D1",
+          "S43-D2",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "dias_analizados": 16,
+          "piezas_totales": 0,
+          "horas_produccion_media": 7.71,
+          "horas_parada_propia_media": 14.27,
+          "piezas_linea_dia": 1519.5
+        }
+      }
+    },
+    {
+      "id": "AL-021",
+      "nivel": "advertencia",
+      "categoria": "parada_dia_completo",
+      "operacion": "Ma_BM2_2",
+      "orden_op": 88,
+      "titulo": "Advertencia proceso Ma_BM2_2: parada de día completo sospechosa",
+      "resumen": "Marca 22 h de parada propia en 4 día(s) mientras la línea produce",
+      "detalle": {
+        "efecto_observado": "Esos días la línea produjo ~1562 piezas, pero esta máquina figura parada las 22 h. En una línea en serie no es posible.",
+        "causa_probable": "Sensor atascado en estado de parada o máquina puenteada ese día.",
+        "otras_causas_posibles": [
+          "Avería real de larga duración con la línea desviada por otro camino"
+        ],
+        "impacto_en_el_analisis": "La parada propia de esos días no es fiable y se marca como sospechosa.",
+        "recomendacion": "Contrastar esos días con los partes de mantenimiento.",
+        "dias_afectados": [
+          "S42-D4",
+          "S43-D3",
+          "S43-D4",
+          "S43-D5"
+        ],
+        "datos": {
+          "por_dia": [
+            {
+              "dia": "S42-D4",
+              "parada_propia_h": 22.0,
+              "piezas_maquina": 1509,
+              "piezas_linea": 1552.0
+            },
+            {
+              "dia": "S43-D3",
+              "parada_propia_h": 22.0,
+              "piezas_maquina": 1541,
+              "piezas_linea": 1593.0
+            },
+            {
+              "dia": "S43-D4",
+              "parada_propia_h": 22.01,
+              "piezas_maquina": 1513,
+              "piezas_linea": 1530.0
+            },
+            {
+              "dia": "S43-D5",
+              "parada_propia_h": 22.0,
+              "piezas_maquina": 1531,
+              "piezas_linea": 1574.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AL-022",
+      "nivel": "advertencia",
+      "categoria": "averia_atipica",
+      "operacion": "MANOP749",
+      "orden_op": 91,
+      "titulo": "Advertencia proceso MANOP749: parada propia anormalmente larga",
+      "resumen": "14.6 h de parada propia el S41-D1 (lo normal en esta máquina: 3.7 h/día)",
+      "detalle": {
+        "efecto_observado": "En 3 día(s) la parada propia multiplica por 4 su valor habitual.",
+        "causa_probable": "Avería grave puntual.",
+        "otras_causas_posibles": [
+          "Parada de línea atribuida a esta máquina",
+          "Estado de parada que no se cerró en el sistema"
+        ],
+        "impacto_en_el_analisis": "Se mantiene en el análisis: si fuera un error de registro, inflaría la parada propia de esta máquina.",
+        "recomendacion": "Verificar con el parte de mantenimiento de ese día.",
+        "dias_afectados": [
+          "S41-D1",
+          "S41-D2",
+          "S43-D1"
+        ],
+        "datos": {
+          "parada_propia_habitual_h": 3.7,
+          "limite_atipico_h": 9.37,
+          "por_dia": [
+            {
+              "dia": "S41-D1",
+              "parada_propia_h": 14.58,
+              "paradas": 54,
+              "piezas": 96
+            },
+            {
+              "dia": "S41-D2",
+              "parada_propia_h": 11.1,
+              "paradas": 246,
+              "piezas": 486
+            },
+            {
+              "dia": "S43-D1",
+              "parada_propia_h": 9.55,
+              "paradas": 428,
+              "piezas": 726
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
