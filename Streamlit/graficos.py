@@ -10,16 +10,16 @@ import streamlit as st
 from lossia import config as LC
 
 
-COLORES = {"TBF": "#46866B", "TAP": "#B45257", "DES": "#BB8B4D", "SAT": "#577DB1"}
+COLORES = {"TBF": "#46866B", "TAP": "#FFFFFF", "DES": "#BB8B4D", "SAT": "#A5A5A5"}
 NOMBRES = {
     "TBF": "Funcionando (TBF)",
     "TAP": "Parada propia (TAP)",
     "DES": "Desabastecimiento (DES)",
     "SAT": "Saturación (SAT)",
 }
-AZUL = "#0045A5"
-SECUNDARIO = "#566578"
-GRIS_BARRA = "#8796A9"
+AZUL = "#FFFFFF"
+SECUNDARIO = "#B0B0B0"
+GRIS_BARRA = "#929292"
 
 
 def _eje_operaciones(fig, operaciones):
@@ -100,7 +100,7 @@ def _criticidad(k):
             continue
         marcador = dict(
             sizemode="area", sizeref=2 * puntos["Tamaño"].max() / 28**2, sizemin=4,
-            size=grupo["Tamaño"], line=dict(width=.7, color="#FFFFFF"),
+            size=grupo["Tamaño"], line=dict(width=.7, color="#202020"),
         )
         if tiene_dp:
             marcador.update(color=grupo.Dp, coloraxis="coloraxis")
@@ -119,7 +119,7 @@ def _criticidad(k):
             ),
         )
     fig.update_layout(coloraxis=dict(
-        colorscale=["#B45257", "#CFBC92", "#46866B"], cmin=70, cmax=100,
+        colorscale=["#FFFFFF", "#CFBC92", "#46866B"], cmin=70, cmax=100,
         showscale=not con_dp.empty,
         colorbar=dict(title="Dp", ticksuffix=" %", thickness=12,
                       tickvals=[70, 80, 90, 100], outlinewidth=0),
@@ -240,7 +240,7 @@ def _objetivo(k, campo, etiqueta, unidad, umbral, fallo, ascendente):
     fig.update_layout(barmode="overlay")
     estilo_umbral = dict(line_dash="dash", line_color=AZUL, line_width=1.4,
                          annotation_text=f"Objetivo {umbral:g} {unidad}",
-                         annotation_font_color=AZUL, annotation_bgcolor="#FFFFFF")
+                         annotation_font_color=AZUL, annotation_bgcolor="#202020")
     escala = dict(title=f"{etiqueta} ({unidad})", range=[0, max(umbral, datos[campo].max()) * 1.15])
     if horizontal:
         fig.update_layout(height=max(360, 130 + 26 * len(datos)))
@@ -322,7 +322,7 @@ def _vecinas(k, op):
     fig = _barras_estados(datos, "Operacion", COLORES, porcentajes=True)
     foco = posicion - inicio
     fig.add_vrect(
-        x0=foco - .46, x1=foco + .46, fillcolor="#EEF4FC",
+        x0=foco - .46, x1=foco + .46, fillcolor="#393939",
         opacity=1, line_width=0, layer="below",
     )
     _eje_operaciones(fig, datos.Operacion)
@@ -360,15 +360,15 @@ def mostrar_grafico(vista, k, f, op=None, abrir_detalle=None, *, dp_min, tcy_max
     if fig is None:
         return
     fig.update_layout(
-        template="plotly_white", height=fig.layout.height or 490,
-        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
-        font=dict(family="Inter, Segoe UI, sans-serif", size=13, color="#28374B"),
+        template="plotly_dark", height=fig.layout.height or 490,
+        paper_bgcolor="#202020", plot_bgcolor="#202020",
+        font=dict(family="Inter, Segoe UI, sans-serif", size=13, color="#eeeeee"),
         margin=dict(l=24, r=36, t=62, b=28),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        hoverlabel=dict(bgcolor="#FFFFFF"),
+        hoverlabel=dict(bgcolor="#202020"),
     )
-    fig.update_xaxes(automargin=True, gridcolor="#E9EDF3", title_standoff=12)
-    fig.update_yaxes(automargin=True, gridcolor="#E9EDF3", title_standoff=12)
+    fig.update_xaxes(automargin=True, gridcolor="#444444", title_standoff=12)
+    fig.update_yaxes(automargin=True, gridcolor="#444444", title_standoff=12)
     opciones = dict(
         width="stretch", theme=None, key=f"grafico_{vista}",
         config={"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]},
