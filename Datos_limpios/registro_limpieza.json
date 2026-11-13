@@ -1,0 +1,1024 @@
+{
+  "generado": "2026-11-13T18:27:29",
+  "fuente": {
+    "datos": "datos_hackaton.csv",
+    "config": "config_hackaton.csv"
+  },
+  "umbrales": {
+    "t_abierto": 22.0,
+    "t_max_fisico": 24.0,
+    "tol": 0.05,
+    "dia_cerrado_pct_ops": 0.9,
+    "pct_dias_persistente": 0.8,
+    "pct_dias_sistematico": 0.5,
+    "no_registrado_medio": 1.0,
+    "no_registrado_dia": 4.0,
+    "nap_min": 2000,
+    "nap_factor": 100,
+    "tap_outlier_mad": 5,
+    "tap_outlier_min_h": 2.0,
+    "npr_roto": 0.1,
+    "npr_exceso": 1.3,
+    "npr_paralelo": [
+      0.35,
+      0.65
+    ]
+  },
+  "resumen": {
+    "filas_originales": 1820,
+    "dias_originales": 20,
+    "filas_limpias": 1456,
+    "dias_productivos": 16,
+    "operaciones": 91,
+    "operaciones_en_analisis": 85
+  },
+  "entradas": [
+    {
+      "id": "LT-001",
+      "categoria": "dia_no_productivo",
+      "operacion": null,
+      "descripcion": "Días con 0 piezas y casi toda la línea con TAP de día completo: línea cerrada (festivo o sin programa), no averías.",
+      "accion": "eliminado",
+      "dias": [
+        "S40-D1",
+        "S41-D5",
+        "S42-D1",
+        "S42-D5"
+      ],
+      "filas_afectadas": 364,
+      "valores": {
+        "n_dias": 4
+      }
+    },
+    {
+      "id": "LT-002",
+      "categoria": "exceso_horas",
+      "operacion": "PM_0090",
+      "descripcion": "Supera 22 h en 16 de 16 días (media 23.47 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 23.47,
+        "max_h": 23.87,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-003",
+      "categoria": "exceso_horas",
+      "operacion": "PM_0110",
+      "descripcion": "Supera 22 h en 15 de 16 días (media 22.93 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 15,
+      "valores": {
+        "media_h": 22.93,
+        "max_h": 23.58,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-004",
+      "categoria": "exceso_horas",
+      "operacion": "ST-0240",
+      "descripcion": "Supera 22 h en 1 de 16 días (media 22.23 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S42-D4"
+      ],
+      "filas_afectadas": 1,
+      "valores": {
+        "media_h": 22.23,
+        "max_h": 22.23,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-005",
+      "categoria": "exceso_horas",
+      "operacion": "ST0280",
+      "descripcion": "Supera 22 h en 6 de 16 días (media 22.57 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S41-D1",
+        "S41-D4",
+        "S42-D4",
+        "S43-D1",
+        "S43-D3"
+      ],
+      "filas_afectadas": 6,
+      "valores": {
+        "media_h": 22.57,
+        "max_h": 23.32,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-006",
+      "categoria": "exceso_horas",
+      "operacion": "ST-0410",
+      "descripcion": "Supera 22 h en 1 de 16 días (media 22.10 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D5"
+      ],
+      "filas_afectadas": 1,
+      "valores": {
+        "media_h": 22.1,
+        "max_h": 22.1,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-007",
+      "categoria": "exceso_horas",
+      "operacion": "ST2135",
+      "descripcion": "Supera 22 h en 16 de 16 días (media 23.53 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 23.53,
+        "max_h": 23.63,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-008",
+      "categoria": "exceso_horas",
+      "operacion": "ST2235",
+      "descripcion": "Supera 22 h en 16 de 16 días (media 23.17 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 23.17,
+        "max_h": 23.33,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-009",
+      "categoria": "exceso_horas",
+      "operacion": "ST-2340",
+      "descripcion": "Supera 22 h en 10 de 16 días (media 22.45 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2"
+      ],
+      "filas_afectadas": 10,
+      "valores": {
+        "media_h": 22.45,
+        "max_h": 22.96,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-010",
+      "categoria": "exceso_horas",
+      "operacion": "ST2376",
+      "descripcion": "Supera 22 h en 14 de 16 días (media 23.74 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 14,
+      "valores": {
+        "media_h": 23.74,
+        "max_h": 24.0,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-011",
+      "categoria": "exceso_horas",
+      "operacion": "ST-2380",
+      "descripcion": "Supera 22 h en 1 de 16 días (media 22.06 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S43-D5"
+      ],
+      "filas_afectadas": 1,
+      "valores": {
+        "media_h": 22.06,
+        "max_h": 22.06,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-012",
+      "categoria": "exceso_horas",
+      "operacion": "ST-2375",
+      "descripcion": "Supera 22 h en 7 de 16 días (media 22.48 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S42-D3",
+        "S43-D3",
+        "S43-D4"
+      ],
+      "filas_afectadas": 7,
+      "valores": {
+        "media_h": 22.48,
+        "max_h": 23.04,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-013",
+      "categoria": "exceso_horas",
+      "operacion": "ST-0830",
+      "descripcion": "Supera 22 h en 16 de 16 días (media 22.86 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 22.86,
+        "max_h": 23.27,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-014",
+      "categoria": "exceso_horas",
+      "operacion": "ST_3100",
+      "descripcion": "Supera 22 h en 15 de 16 días (media 22.37 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 15,
+      "valores": {
+        "media_h": 22.37,
+        "max_h": 22.74,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-015",
+      "categoria": "exceso_horas",
+      "operacion": "ST3100_2",
+      "descripcion": "Supera 22 h en 14 de 16 días (media 22.32 h). Sistemático: probablemente no para en el descanso de comida.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 14,
+      "valores": {
+        "media_h": 22.32,
+        "max_h": 22.65,
+        "sistematico": true
+      }
+    },
+    {
+      "id": "LT-016",
+      "categoria": "exceso_horas",
+      "operacion": "ST_3300",
+      "descripcion": "Supera 22 h en 7 de 16 días (media 22.63 h). Puntual: solape de estados.",
+      "accion": "reescalado_a_22h",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S41-D1",
+        "S41-D4",
+        "S43-D1",
+        "S43-D2"
+      ],
+      "filas_afectadas": 7,
+      "valores": {
+        "media_h": 22.63,
+        "max_h": 23.4,
+        "sistematico": false
+      }
+    },
+    {
+      "id": "LT-017",
+      "categoria": "orden_config",
+      "operacion": "ST0259",
+      "descripcion": "Va después de ST0261 en la configuración aunque su número es menor. Se respeta el orden de la configuración.",
+      "accion": "sin_cambios",
+      "dias": [],
+      "filas_afectadas": 0,
+      "valores": {
+        "anterior": "ST0261"
+      }
+    },
+    {
+      "id": "LT-018",
+      "categoria": "orden_config",
+      "operacion": "ST-2001",
+      "descripcion": "Va después de ST-2002 en la configuración aunque su número es menor. Se respeta el orden de la configuración.",
+      "accion": "sin_cambios",
+      "dias": [],
+      "filas_afectadas": 0,
+      "valores": {
+        "anterior": "ST-2002"
+      }
+    },
+    {
+      "id": "LT-019",
+      "categoria": "orden_config",
+      "operacion": "ST-2375",
+      "descripcion": "Va después de ST-2380 en la configuración aunque su número es menor. Se respeta el orden de la configuración.",
+      "accion": "sin_cambios",
+      "dias": [],
+      "filas_afectadas": 0,
+      "valores": {
+        "anterior": "ST-2380"
+      }
+    },
+    {
+      "id": "LT-020",
+      "categoria": "orden_config",
+      "operacion": "ST_0820",
+      "descripcion": "Va después de ST_2410 en la configuración aunque su número es menor. Se respeta el orden de la configuración.",
+      "accion": "sin_cambios",
+      "dias": [],
+      "filas_afectadas": 0,
+      "valores": {
+        "anterior": "ST_2410"
+      }
+    },
+    {
+      "id": "LT-021",
+      "categoria": "posible_paralelo",
+      "operacion": "ST2376",
+      "descripcion": "Hace ~765 piezas/día, la mitad que la línea (~1520): probablemente es un puesto en paralelo.",
+      "accion": "sin_cambios",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "piezas_mediana": 765.0,
+        "ratio": 0.5
+      }
+    },
+    {
+      "id": "LT-022",
+      "categoria": "posible_paralelo",
+      "operacion": "ST-2375",
+      "descripcion": "Hace ~764 piezas/día, la mitad que la línea (~1520): probablemente es un puesto en paralelo.",
+      "accion": "sin_cambios",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "piezas_mediana": 764.5,
+        "ratio": 0.5
+      }
+    },
+    {
+      "id": "LT-023",
+      "categoria": "reescalado",
+      "operacion": null,
+      "descripcion": "Filas que superaban 22 h: estados reescalados proporcionalmente (originales en *_raw).",
+      "accion": "reescalado_a_22h",
+      "dias": [],
+      "filas_afectadas": 161,
+      "valores": {
+        "filas": 161
+      }
+    },
+    {
+      "id": "LT-024",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST_0015",
+      "descripcion": "Faltan de media 1.29 h/día sin estado (máx. 2.02 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.29,
+        "max_h": 2.02
+      }
+    },
+    {
+      "id": "LT-025",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST-0250",
+      "descripcion": "Faltan de media 1.16 h/día sin estado (máx. 1.70 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.16,
+        "max_h": 1.7
+      }
+    },
+    {
+      "id": "LT-026",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST0261",
+      "descripcion": "Faltan de media 1.38 h/día sin estado (máx. 1.92 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.38,
+        "max_h": 1.92
+      }
+    },
+    {
+      "id": "LT-027",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST-0260",
+      "descripcion": "Faltan de media 3.76 h/día sin estado (máx. 4.35 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 3.76,
+        "max_h": 4.35
+      }
+    },
+    {
+      "id": "LT-028",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST-0270",
+      "descripcion": "Faltan de media 1.08 h/día sin estado (máx. 1.19 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.08,
+        "max_h": 1.19
+      }
+    },
+    {
+      "id": "LT-029",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST-1000",
+      "descripcion": "Faltan de media 2.62 h/día sin estado (máx. 3.41 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 2.62,
+        "max_h": 3.41
+      }
+    },
+    {
+      "id": "LT-030",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM-2020",
+      "descripcion": "Faltan de media 1.06 h/día sin estado (máx. 1.39 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.06,
+        "max_h": 1.39
+      }
+    },
+    {
+      "id": "LT-031",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2120",
+      "descripcion": "Faltan de media 1.08 h/día sin estado (máx. 1.76 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.08,
+        "max_h": 1.76
+      }
+    },
+    {
+      "id": "LT-032",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2150",
+      "descripcion": "Faltan de media 1.22 h/día sin estado (máx. 2.13 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.22,
+        "max_h": 2.13
+      }
+    },
+    {
+      "id": "LT-033",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2190",
+      "descripcion": "Faltan de media 1.15 h/día sin estado (máx. 2.54 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.15,
+        "max_h": 2.54
+      }
+    },
+    {
+      "id": "LT-034",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2200",
+      "descripcion": "Faltan de media 1.04 h/día sin estado (máx. 1.60 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.04,
+        "max_h": 1.6
+      }
+    },
+    {
+      "id": "LT-035",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2230",
+      "descripcion": "Faltan de media 2.49 h/día sin estado (máx. 4.43 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 2.49,
+        "max_h": 4.43
+      }
+    },
+    {
+      "id": "LT-036",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM_2270",
+      "descripcion": "Faltan de media 1.27 h/día sin estado (máx. 2.73 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.27,
+        "max_h": 2.73
+      }
+    },
+    {
+      "id": "LT-037",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM2300",
+      "descripcion": "Faltan de media 1.50 h/día sin estado (máx. 2.49 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.5,
+        "max_h": 2.49
+      }
+    },
+    {
+      "id": "LT-038",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "PM_2310",
+      "descripcion": "Faltan de media 1.00 h/día sin estado (máx. 1.95 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D2",
+        "S40-D3",
+        "S40-D4",
+        "S40-D5",
+        "S41-D1",
+        "S41-D2",
+        "S41-D3",
+        "S41-D4",
+        "S42-D2",
+        "S42-D3",
+        "S42-D4",
+        "S43-D1",
+        "S43-D2",
+        "S43-D3",
+        "S43-D4",
+        "S43-D5"
+      ],
+      "filas_afectadas": 16,
+      "valores": {
+        "media_h": 1.0,
+        "max_h": 1.95
+      }
+    },
+    {
+      "id": "LT-039",
+      "categoria": "tiempo_no_registrado",
+      "operacion": "ST_3300",
+      "descripcion": "Faltan de media 0.80 h/día sin estado (máx. 5.12 h).",
+      "accion": "guardado_en_T_no_registrado",
+      "dias": [
+        "S40-D5",
+        "S41-D2",
+        "S42-D2",
+        "S42-D4",
+        "S43-D3",
+        "S43-D5"
+      ],
+      "filas_afectadas": 6,
+      "valores": {
+        "media_h": 0.8,
+        "max_h": 5.12
+      }
+    }
+  ]
+}
