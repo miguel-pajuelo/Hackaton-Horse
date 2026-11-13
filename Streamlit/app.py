@@ -4,6 +4,7 @@ LOSSIA · Visualización de máquinas penalizantes (Línea 5 Montaje Valladolid)
 Ejecutar desde la raíz del repo:   streamlit run Streamlit/app.py
 Entrada: Datos_limpios/datos_limpios.csv (salida de limpieza.py)
 """
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -26,9 +27,44 @@ CMIN_POR_HORA = 6000  # 1 h = 60 min = 6000 cmin  (los tiempos vienen en horas)
 
 COLORES = {"TBF": "#2E9E5B", "TAP": "#D64545", "DES": "#E8A33D", "SAT": "#4A7BD0"}
 NOMBRES = {"TBF": "Funcionando (TBF)", "TAP": "Parada propia (TAP)",
-           "DES": "Desabastecimiento (DES)", "SAT": "Saturación (SAT)"}
+            "DES": "Desabastecimiento (DES)", "SAT": "Saturación (SAT)"}
 
-st.set_page_config(page_title="LOSSIA · Máquinas penalizantes", page_icon="🏭", layout="wide")
+st.set_page_config(page_title="LOSSIA · Máquinas penalizantes", layout="wide")
+
+DIAS = {1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes", 6: "Sábado", 7: "Domingo"}
+MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+# Ajustes tipográficos finos (la fuente base se define en .streamlit/config.toml)
+st.markdown("""
+<style>
+h1 { font-weight: 600 !important; letter-spacing: -0.02em; }
+h2, h3 { font-weight: 600 !important; letter-spacing: -0.01em; }
+[data-testid="stMetricLabel"] p {
+    font-size: 0.72rem; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #52606D;
+}
+[data-testid="stMetricValue"] { font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-testid="stCaptionContainer"] { color: #616E7C; }
+.stTabs [data-baseweb="tab"] p { font-weight: 500; letter-spacing: 0.01em; }
+[data-testid="stSidebar"] .etiqueta {
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #52606D; margin: 1.1rem 0 0.3rem 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+def etiqueta(texto):
+    st.sidebar.markdown(f'<div class="etiqueta">{texto}</div>', unsafe_allow_html=True)
+
+
+def rango_semana(anio, semana):
+    """'28 sep – 2 oct' para la semana ISO (lunes a viernes)."""
+    lunes = date.fromisocalendar(int(anio), int(semana), 1)
+    viernes = lunes + timedelta(days=4)
+    if lunes.month == viernes.month:
+        return f"{lunes.day}–{viernes.day} {MESES[lunes.month - 1]}"
+    return f"{lunes.day} {MESES[lunes.month - 1]} – {viernes.day} {MESES[viernes.month - 1]}"
 
 
 # ----------------------------------------------------------------------------
@@ -92,20 +128,38 @@ def kpis(df: pd.DataFrame) -> pd.DataFrame:
 # ----------------------------------------------------------------------------
 # Sidebar
 # ----------------------------------------------------------------------------
-st.sidebar.title("🏭 LOSSIA")
+st.sidebar.title("LOSSIA")
+st.sidebar.caption("Línea 5 · Montaje Valladolid")
 with st.sidebar.expander("Fuentes de datos", expanded=False):
     up_datos = st.file_uploader("CSV de datos (limpio)", type="csv")
     up_config = st.file_uploader("CSV de configuración (solo si los datos no traen Orden_OP)", type="csv")
 
 df = cargar(up_datos or DEFAULT_DATOS, up_config or DEFAULT_CONFIG)
 
-semanas = sorted(df.Week.unique())
-sel_sem = st.sidebar.multiselect("Semanas", semanas, default=semanas)
+# --- Periodo: semanas y días como botones conmutables ---
+anio = int(df.Year.mode()[0]) if "Year" in df.columns else date.today().year
+semanas = sorted(int(w) for w in df.Week.unique())
+etiqueta("Semanas")
+sel_sem = st.sidebar.pills(
+    "Semanas", semanas, selection_mode="multi", default=semanas,
+    format_func=lambda w: f"S{w}", label_visibility="collapsed", key="sel_sem")
+st.sidebar.caption(" · ".join(f"S{w}: {rango_semana(anio, w)}" for w in semanas))
+
 if "Jour" in df.columns:
-    dias = sorted(df.Jour.unique())
-    sel_dia = st.sidebar.multiselect("Día de la semana", dias, default=dias)
+    dias = sorted(int(d) for d in df.Jour.unique())
+    etiqueta("Días de la semana")
+    sel_dia = st.sidebar.pills(
+        "Días de la semana", dias, selection_mode="multi", default=dias,
+        format_func=lambda d: DIAS.get(d, str(d))[:3], label_visibility="collapsed", key="sel_dia")
 else:
     sel_dia = None
+
+# Sin selección = todo (evita dejar el panel vacío por accidente)
+sel_sem = sel_sem or semanas
+if sel_dia is not None:
+    sel_dia = sel_dia or dias
+
+etiqueta("Filtros")
 
 tipos = sorted(df.Tipo.dropna().unique())
 sel_tipo = st.sidebar.multiselect("Tipo de operación", tipos, default=tipos)
@@ -114,7 +168,7 @@ orden_min, orden_max = int(df.Orden_OP.min()), int(df.Orden_OP.max())
 rango = st.sidebar.slider("Tramo de la línea (orden OP)", orden_min, orden_max, (orden_min, orden_max))
 top_n = st.sidebar.slider("Top N en rankings", 5, 30, 10)
 
-st.sidebar.markdown("**Criterios de limpieza**")
+etiqueta("Criterios de limpieza")
 solo_incluidas = st.sidebar.checkbox(
     "Solo operaciones incluidas en el análisis", value=True,
     help="Excluye las operaciones marcadas con incluir_analisis = False "
@@ -141,7 +195,10 @@ k = kpis(f)
 # Cabecera + KPIs
 # ----------------------------------------------------------------------------
 st.title("Máquinas penalizantes · Línea 5 Montaje Valladolid")
-st.caption(f"Semanas {', '.join(map(str, sel_sem))} · operaciones {rango[0]}–{rango[1]} · "
+txt_sem = ", ".join(f"S{w}" for w in sorted(sel_sem))
+txt_dia = ("todos los días" if sel_dia is None or len(sel_dia) == len(dias)
+           else ", ".join(DIAS.get(d, str(d)) for d in sorted(sel_dia)))
+st.caption(f"{txt_sem} · {txt_dia} · operaciones {rango[0]}–{rango[1]} · "
            f"{k.Operacion.nunique()} operaciones")
 
 top = k.sort_values("Indice", ascending=False).iloc[0]
@@ -152,7 +209,7 @@ c3.metric("Incumplen Dp ≥ 90 %", f"{int(k.Incumple_Dp.sum())} / {len(k)}")
 c4.metric("Incumplen Tcy ≤ 80 cmin", f"{int(k.Incumple_Tcy.sum())} / {len(k)}")
 
 tab_linea, tab_rank, tab_obj, tab_maq, tab_tabla = st.tabs(
-    ["🗺️ Mapa de la línea", "🎯 Penalizantes", "📏 Objetivos", "🔍 Detalle máquina", "📋 Tabla"])
+    ["Mapa de la línea", "Penalizantes", "Objetivos", "Detalle por máquina", "Tabla de datos"])
 
 # ----------------------------------------------------------------------------
 # 1. Mapa de la línea
@@ -225,7 +282,7 @@ with tab_rank:
         fig.update_layout(height=520, legend_title="Dp < 90 %", yaxis_title=None)
         st.plotly_chart(fig, width="stretch")
 
-    with st.expander("ℹ️ ¿Cómo se calcula el índice?"):
+    with st.expander("Cómo se calcula el índice"):
         st.markdown(
             "- **Índice = TAP × (1 − %TAI)**. Pondera las horas de parada propia por lo poco que "
             "otras máquinas paran a ésta: si casi no tiene parada inducida, sus paradas son suyas "
@@ -286,7 +343,10 @@ with tab_maq:
         ev = f[f.Operacion == op].copy()
         eje = ["Week", "Jour"] if "Jour" in ev.columns else ["Week"]
         ev = ev.groupby(eje, as_index=False)[list(COLORES)].sum()
-        ev["Periodo"] = ev[eje].astype(str).agg("-".join, axis=1).radd("S")
+        if "Jour" in ev.columns:
+            ev["Periodo"] = "S" + ev.Week.astype(str) + " · " + ev.Jour.map(lambda d: DIAS.get(int(d), str(d))[:3])
+        else:
+            ev["Periodo"] = "S" + ev.Week.astype(str)
         larga = ev.melt(id_vars="Periodo", value_vars=list(COLORES), var_name="Tipo", value_name="h")
         fig = px.bar(larga, x="Periodo", y="h", color="Tipo", color_discrete_map=COLORES)
         fig.update_layout(height=380, barmode="stack", yaxis_title="horas")
@@ -319,9 +379,9 @@ with tab_tabla:
         .map(lambda v: "color:#D64545;font-weight:600" if pd.notna(v) and v > TCY_MAX else "",
              subset=["Tcy"]),
         width="stretch", height=600, hide_index=True)
-    st.download_button("⬇️ Descargar CSV", k[cols].to_csv(index=False).encode("utf-8"),
+    st.download_button("Descargar CSV", k[cols].to_csv(index=False).encode("utf-8"),
                        "kpis_lossia.csv", "text/csv")
 
     if INFORME.exists():
-        with st.expander("🧹 Informe de limpieza de datos"):
+        with st.expander("Informe de limpieza de datos"):
             st.text(INFORME.read_text(encoding="utf-8"))
