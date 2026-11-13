@@ -5,7 +5,7 @@ Conceptos:
 - Operación: máquina/puesto tal y como viene en los datos (Operacion_norm).
 - Etapa: unidad de análisis. Normalmente una operación; las estaciones en paralelo
   se fusionan en una sola etapa (tiempos promediados, piezas y paradas sumadas).
-- Periodo: 'GLOBAL' (todos los días) o un día 'S40-D2'.
+- Periodo: 'GLOBAL' (todos los días) o un día '2026-S40-D2'.
 """
 from __future__ import annotations
 
@@ -31,7 +31,8 @@ def cargar(dir_limpios: Path = C.DIR_LIMPIOS) -> tuple[pd.DataFrame, pd.DataFram
 
     datos = datos[datos["incluir_analisis"]].copy()
     config = config[config["incluir_analisis"]].copy()
-    datos["Dia"] = "S" + datos["Week"].astype(str) + "-D" + datos["Jour"].astype(str)
+    datos["Dia"] = (datos["Year"].astype(str) + "-S" + datos["Week"].astype(str).str.zfill(2)
+                    + "-D" + datos["Jour"].astype(str))
     # Piezas no fiables: no se usan para ratios por pieza (Tcy, Fpm)
     datos.loc[datos["flag_npr_invalido"], "NPR"] = np.nan
     # Días con parada propia no fiable (sensor sospechoso) o con una avería anormalmente larga
@@ -80,18 +81,18 @@ def por_etapa_dia(datos: pd.DataFrame, mapa: pd.DataFrame) -> pd.DataFrame:
     d = datos.merge(mapa[["Operacion_norm", "Etapa"]], on="Operacion_norm")
     agg = {c: "mean" for c in TIEMPOS} | {c: lambda s: s.sum(min_count=1) for c in CONTADORES}
     agg |= {f: "max" for f in FLAGS}
-    out = d.groupby(["Week", "Jour", "Dia", "Etapa"], as_index=False).agg(agg)
+    out = d.groupby(["Year", "Week", "Jour", "Dia", "Etapa"], as_index=False).agg(agg)
     out[FLAGS] = out[FLAGS].astype(int)
     info = mapa.drop_duplicates("Etapa")[["Etapa", "Orden_etapa", "Tipo", "en_cadena", "n_paralelo"]]
     out = out.merge(info, on="Etapa")
     out["TAI"] = out["DES"] + out["SAT"]
-    return out.sort_values(["Week", "Jour", "Orden_etapa"]).reset_index(drop=True)
+    return out.sort_values(["Year", "Week", "Jour", "Orden_etapa"]).reset_index(drop=True)
 
 
 def agregar(etapa_dia: pd.DataFrame, nivel: str) -> pd.DataFrame:
     """
     Agrega a la granularidad pedida. Devuelve columnas 'Periodo' + Etapa + horas y contadores.
-    - 'dia':    tal cual (Periodo = 'S40-D2').
+    - 'dia':    tal cual (Periodo = '2026-S40-D2').
     - 'global': suma de todos los días (Periodo = 'GLOBAL'), con n_dias para medias.
     """
     if nivel == "dia":

@@ -7,7 +7,7 @@ Uso:
 
 Requiere haber ejecutado antes limpieza.py.
 
-Salidas en Resultados/ (todas con columna 'Periodo' = 'GLOBAL' o día 'S40-D2',
+Salidas en Resultados/ (todas con columna 'Periodo' = 'GLOBAL' o día '2026-S40-D2',
 para que la interfaz filtre por granularidad):
     etapas.csv                      operaciones -> etapa (paralelos fusionados), orden, si entra en la cadena
     kpis_{global,dia}.csv           Dp, Tcy, Fpm, % de paradas y semáforo frente a las referencias
