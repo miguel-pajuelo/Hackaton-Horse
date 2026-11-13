@@ -1,25 +1,40 @@
+"""
+LOSSIA · Línea 5, Montaje Valladolid.
+
+Capa de PRESENTACIÓN únicamente. Todo el cálculo analítico (KPIs, método de
+flechas, prioridades y mantenimiento) vive en `lossia/` y se ejecuta igual que
+en `analisis.py`; esta app no recalcula nada por su cuenta — ver `lossia/interfaz.py`.
+
+Unidad de análisis: la ETAPA (una o varias operaciones en paralelo fusionadas).
+El tramo de línea, el tipo de operación y la selección de máquinas filtran solo
+la PRESENTACIÓN (qué filas se muestran); nunca se usan para recortar la cadena
+antes del método de flechas, que necesita la línea completa y consecutiva.
+"""
 from base64 import b64encode
 from datetime import date, timedelta
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-from graficos import mostrar_grafico
-
 APP = Path(__file__).resolve().parent
 REPO = APP.parent
-DEFAULT_DATOS = REPO / "Datos_limpios" / "datos_limpios.csv"
-DEFAULT_CONFIG = REPO / "Datos_limpios" / "config_limpia.csv"
-INFORME = REPO / "Datos_limpios" / "informe_limpieza.txt"
-ALERTAS = REPO / "Datos_limpios" / "alertas.json"
-REGISTRO = REPO / "Datos_limpios" / "registro_limpieza.json"
+sys.path.insert(0, str(REPO))
 
-TCY_MAX = 80.0      # cmin
-DP_MIN = 90.0       # %
-CMIN_POR_HORA = 6000  # 1 h = 60 min = 6000 cmin  (los tiempos vienen en horas)
+from lossia import config as LC, interfaz as LI  # noqa: E402
+from graficos import mostrar_grafico  # noqa: E402
+
+DIR_LIMPIOS = LC.DIR_LIMPIOS
+DIR_RESULTADOS = LC.DIR_RESULTADOS
+ALERTAS = DIR_LIMPIOS / "alertas.json"
+REGISTRO = DIR_LIMPIOS / "registro_limpieza.json"
+INFORME = DIR_LIMPIOS / "informe_limpieza.txt"
+
+TCY_MAX = LC.TCY_MAX_CMIN     # cmin — única fuente de verdad: lossia/config.py
+DP_MIN = LC.DP_MIN * 100      # % — lossia/config.py guarda la fracción (0.90)
 
 DIAS = {1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb", 7: "Dom"}
 TIPOS = {"Estacion (ST)": "Estación (ST)", "Estación (ST)": "Estación (ST)",
@@ -31,7 +46,7 @@ VISTAS = {
     "criticidad": ("Penalizantes", "Mapa de criticidad"),
     "ranking": ("Penalizantes", "Top penalizantes"),
     "paradas": ("Penalizantes", "Parada propia vs. inducida"),
-    "disponibilidad": ("Objetivos", "Disponibilidad por operación"),
+    "disponibilidad": ("Objetivos", "Disponibilidad por etapa"),
     "ciclo": ("Objetivos", "Tiempo de ciclo"),
     "frecuencia": ("Objetivos", "Frecuencia de paro"),
 }
@@ -43,7 +58,7 @@ ACCESOS = {
     "paradas": "Parada propia vs. inducida",
 }
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
-            "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Indice"]
+            "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "Categoria"]
 
 st.set_page_config(page_title="LOSSIA · Línea 5", layout="wide")
 st.html(APP / "lossia.css")
@@ -53,117 +68,87 @@ def fmt_fecha(d, anio=False):
     return f"{d.day} {MESES[d.month - 1]}" + (f" {d.year}" if anio else "")
 
 
-@st.cache_data
-def cargar(datos_src, config_src):
-    df = pd.read_csv(datos_src)
-    # Si los datos no traen el orden de la línea (p.ej. CSV original), se cruza con la config
-    if "Orden_OP" not in df.columns:
-        config = pd.read_csv(config_src)
-        on = [c for c in ("Linea", "Operacion") if c in df.columns and c in config.columns]
-        df = df.merge(config, on=on, how="inner")
-    # Columnas opcionales que genera limpieza.py
-    for col, default in {"incluir_analisis": True, "flag_npr_invalido": False,
-                         "flag_tap_sospechoso": False, "Tipo": "—"}.items():
-        if col not in df.columns:
-            df[col] = default
-    for col in ("incluir_analisis", "flag_npr_invalido", "flag_tap_sospechoso"):
-        df[col] = df[col].astype(str).str.lower().isin(["true", "1"])
-    # Fecha real a partir de semana ISO + día (Jour: 1 = lunes ... 7 = domingo)
-    anio = df["Year"] if "Year" in df.columns else pd.Series(date.today().year, index=df.index)
-    dia = df["Jour"] if "Jour" in df.columns else pd.Series(1, index=df.index)
-    df["Fecha"] = [date.fromisocalendar(int(y), int(w), int(d))
-                   for y, w, d in zip(anio, df["Week"], dia)]
-    return df
+# ----------------------------------------------------------------------------
+# Motor oficial: carga única de los datos en bruto + recálculo por selección de días.
+# La caché se invalida sola si cambian los CSV/JSON de Datos_limpios/ (por `firma`).
+# ----------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Cargando datos de la línea…")
+def _motor(firma):
+    return LI.cargar_motor(DIR_LIMPIOS)
 
 
-@st.cache_data
+def motor_actual() -> LI.Motor:
+    return _motor(LI.firma_fuentes(DIR_LIMPIOS))
+
+
+@st.cache_data(show_spinner=False)
+def _resultado_cacheado(firma, firma_resultados, dias):
+    # `firma_resultados` solo se usa como parte de la clave de caché: si se regenera
+    # Resultados/ (botón "Regenerar Resultados/"), cambia y la caché se invalida sola.
+    motor = _motor(firma)
+    return LI.calcular(motor, list(dias) if dias else None)
+
+
+def resultado_para(motor: LI.Motor, dias) -> LI.Resultado:
+    firma_res = LI.resultados_firma(DIR_RESULTADOS)
+    return _resultado_cacheado(motor.firma, firma_res, tuple(sorted(dias)) if dias else None)
+
+
+@st.cache_data(show_spinner=False)
+def _con_fecha(firma):
+    motor = _motor(firma)
+    e = motor.etapa_dia.copy()
+    e["Fecha"] = [date.fromisocalendar(int(y), int(w), int(d))
+                  for y, w, d in zip(e.Year, e.Week, e.Jour)]
+    return e
+
+
+def etapa_dia_con_fecha(motor: LI.Motor) -> pd.DataFrame:
+    return _con_fecha(motor.firma)
+
+
+@st.cache_data(show_spinner=False)
 def cargar_json(ruta: str) -> dict:
     p = Path(ruta)
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
-def _alertas_por_op() -> dict:
-    """{operacion: [alertas]} de alertas.json."""
-    out = {}
-    for a in cargar_json(str(ALERTAS)).get("alertas", []):
-        out.setdefault(a.get("operacion"), []).append(a)
-    return out
+def _alertas() -> list[dict]:
+    return cargar_json(str(ALERTAS)).get("alertas", [])
 
 
-def _registro_por_op() -> dict:
-    """{operacion|None: [entradas]} de registro_limpieza.json."""
+def _registro_por_operacion() -> dict:
     out = {}
     for e in cargar_json(str(REGISTRO)).get("entradas", []):
         out.setdefault(e.get("operacion"), []).append(e)
     return out
 
 
-def _cuerpo_alerta(a: dict, registro: list | None = None):
-    """Contenido detallado (causas y consecuencias) dentro del panel flotante."""
-    d = a.get("detalle", {})
-    icono = "🔴" if a.get("nivel") == "error" else "🟠"
-    st.markdown(f"#### {icono} {a.get('titulo', a.get('id'))}")
-    st.caption(f"{a.get('id')} · {a.get('categoria', '').replace('_', ' ')} · "
-               f"orden OP {a.get('orden_op', '—')}")
-    st.markdown(f"**Problema:** {a.get('resumen', '')}")
-    if d.get("efecto_observado"):
-        st.markdown(f"**Qué se observa:** {d['efecto_observado']}")
-    if d.get("causa_probable"):
-        st.markdown(f"**Causa probable:** {d['causa_probable']}")
-    if d.get("otras_causas_posibles"):
-        st.markdown("**Otras causas posibles:**\n" +
-                    "\n".join(f"- {c}" for c in d["otras_causas_posibles"]))
-    if d.get("impacto_en_el_analisis"):
-        st.markdown(f"**Consecuencia en el análisis:** {d['impacto_en_el_analisis']}")
-    if d.get("recomendacion"):
-        st.info(f"**Recomendación:** {d['recomendacion']}")
-    if d.get("dias_afectados"):
-        st.caption(f"Días afectados ({len(d['dias_afectados'])}): " + ", ".join(d["dias_afectados"]))
-    if d.get("datos"):
-        st.json(d["datos"], expanded=False)
-    if registro:
-        with st.expander("🧹 Tratamiento aplicado en la limpieza"):
-            for e in registro:
-                st.markdown(f"- **{e.get('id')}** · {e.get('descripcion', '')} "
-                            f"→ *{str(e.get('accion', '')).replace('_', ' ')}*"
-                            f" ({e.get('filas_afectadas', 0)} filas)")
+def construir_vista(resultado: LI.Resultado) -> pd.DataFrame:
+    """Tabla única por etapa para presentación: KPIs oficiales + columnas del método
+    de flechas y de prioridades, sin ningún cálculo propio. Solo renombra/escala para
+    mostrar (Dp y los % eran fracciones 0–1 en el motor; aquí se expresan en %)."""
+    if resultado.kpis.empty:
+        return resultado.kpis.assign(**{c: [] for c in COLUMNAS if c not in resultado.kpis.columns})
 
-
-def kpis(df: pd.DataFrame) -> pd.DataFrame:
-    """Agrega por operación (suma de tiempos/contadores) y calcula indicadores."""
-    df = df.copy()
-    # Piezas no fiables (flag_npr_invalido): sus tiempos cuentan, pero no entran en Tcy/Fpm
-    ok = ~df.flag_npr_invalido
-    df["TBF_v"] = df.TBF.where(ok, 0)
-    df["NAP_v"] = df.NAP.where(ok, 0)
-    df["NPR_v"] = df.NPR.where(ok, 0)
-
-    g = (df.groupby(["Operacion", "Orden_OP", "Tipo"], as_index=False)
-           [["TBF", "TAP", "DES", "SAT", "NAP", "NPR", "TBF_v", "NAP_v", "NPR_v"]].sum()
-           .sort_values("Orden_OP").reset_index(drop=True))
-    g["TAI"] = g.DES + g.SAT
-    g["TR"] = g.TBF + g.TAP + g.TAI
-    tr = g.TR.replace(0, np.nan)
-    for c in ("TBF", "TAP", "DES", "SAT", "TAI"):
-        g[f"%{c}"] = 100 * g[c] / tr
-    g["Dp"] = 100 * g.TBF / (g.TBF + g.TAP).replace(0, np.nan)
-    npr = g.NPR_v.replace(0, np.nan)
-    g["Tcy"] = g.TBF_v * CMIN_POR_HORA / npr
-    g["Fpm"] = 1000 * g.NAP_v / npr
-
-    # Evidencia de propagación en la línea (línea serie, por orden):
-    #  - si i se para, la siguiente (i+1) se queda sin piezas  -> DES de i+1
-    #  - si i se para, la anterior (i-1) no puede descargar    -> SAT de i-1
-    g["DES_siguiente"] = g.DES.shift(-1).fillna(0)
-    g["SAT_anterior"] = g.SAT.shift(1).fillna(0)
-    g["Induce_vecinos"] = g.DES_siguiente + g.SAT_anterior
-
-    # Índice de penalización: horas de parada propia ponderadas por lo "libre" que
-    # está la máquina (poca parada inducida => la parada es suya y se propaga).
-    g["Indice"] = g.TAP * (1 - g["%TAI"].fillna(0) / 100)
-    g["Incumple_Dp"] = g.Dp < DP_MIN
-    g["Incumple_Tcy"] = g.Tcy > TCY_MAX
-    return g
+    extra = resultado.prioridades[["Etapa", "categoria", "motivo", "orden_vista", "rango_mant",
+                                    "es_cuello", "es_relevante", "severidad", "horas_inducidas",
+                                    "rango_det"]]
+    k = resultado.kpis.merge(extra, on="Etapa", how="left")
+    k = k.rename(columns={
+        "Etapa": "Operacion", "Orden_etapa": "Orden_OP", "Tcy_cmin": "Tcy",
+        "horas_inducidas": "Induce_vecinos", "severidad": "Severidad",
+        "es_cuello": "Es_cuello", "es_relevante": "Es_relevante", "rango_det": "Rango_det",
+        "categoria": "Categoria", "motivo": "Motivo",
+    })
+    k["Es_principal"] = k["Rango_det"] == 1
+    k["Dp"] = k["Dp"] * 100
+    for c in ("TAP", "DES", "SAT", "TAI"):
+        k[f"%{c}"] = k.pop(f"pct_{c}") * 100
+    k["%TBF"] = 100 * k["TBF"] / k["TR"].replace(0, np.nan)  # no está en kpis.calcular (solo paradas)
+    k["Incumple_Dp"] = ~k["cumple_Dp"]
+    k["Incumple_Tcy"] = k["cumple_Tcy"].eq(False)  # NaN (sin dato) -> False, no cuenta como incumplimiento
+    return k.sort_values("Orden_OP").reset_index(drop=True)
 
 
 def navegar(vista, op=None, *, cerrar_menu=False):
@@ -209,30 +194,40 @@ def filtro_periodo(fecha_min, fecha_max):
     return fechas[0], fechas[-1]
 
 
-def filtros(df):
+def filtros(motor: LI.Motor):
+    """Filtros de la barra lateral.
+    - Periodo + días de la semana seleccionan los DÍAS que entran en el recálculo oficial
+      (kpis/método de flechas se recomputan sobre exactamente esos días, igual que haría
+      `analisis.py` para ese rango — nunca se suman/promedian resultados ya agregados).
+    - Tipo, tramo de línea y máquinas son filtros de PRESENTACIÓN: no tocan el cálculo,
+      solo qué filas de la tabla ya calculada (sobre la línea completa) se muestran.
+    """
+    ed = etapa_dia_con_fecha(motor)
     with st.sidebar:
         st.html('<div class="lossia-brand"><i aria-hidden="true"><b></b><b></b><b></b><b></b></i>LOSSIA</div>')
-        inicio, fin = filtro_periodo(df.Fecha.min(), df.Fecha.max())
-        fechas = df.Fecha.between(inicio, fin)
-        if "Jour" in df.columns:
-            dias = sorted(int(d) for d in df.Jour.unique())
+        inicio, fin = filtro_periodo(ed.Fecha.min(), ed.Fecha.max())
+        mascara_fecha = ed.Fecha.between(inicio, fin)
+        dias_sem = sorted(int(d) for d in ed.Jour.unique())
 
-            def completar_dias():
-                if not st.session_state.sel_dia:
-                    st.session_state.sel_dia = dias
+        def completar_dias():
+            if not st.session_state.sel_dia:
+                st.session_state.sel_dia = dias_sem
 
-            with st.container(key="dias"):
-                seleccion = st.pills("Días de la semana", dias, selection_mode="multi",
-                                     default=dias, format_func=DIAS.__getitem__, key="sel_dia",
-                                     on_change=completar_dias, wrap=len(dias) > 5)
-            fechas &= df.Jour.isin(seleccion or dias)
+        with st.container(key="dias"):
+            seleccion_dia = st.pills("Días de la semana", dias_sem, selection_mode="multi",
+                                     default=dias_sem, format_func=DIAS.__getitem__, key="sel_dia",
+                                     on_change=completar_dias, wrap=len(dias_sem) > 5)
+        mascara_fecha &= ed.Jour.isin(seleccion_dia or dias_sem)
+        dias_seleccionados = sorted(ed.loc[mascara_fecha, "Dia"].unique().tolist())
 
-        tipos = sorted(df.Tipo.dropna().unique())
+        st.caption("Tipo, tramo y máquinas filtran solo lo que se muestra; el método de "
+                   "flechas se calcula siempre sobre la línea completa.", help=None)
+        tipos = sorted(motor.mapa_etapas.Tipo.dropna().unique())
         with st.container(key="tipos"):
             seleccion_tipo = st.multiselect(
                 "Tipo de operación", tipos, format_func=lambda t: TIPOS.get(t, t),
                 key="sel_tipo", placeholder="Todas")
-        minimo, maximo = int(df.Orden_OP.min()), int(df.Orden_OP.max())
+        minimo, maximo = int(motor.mapa_etapas.Orden_etapa.min()), int(motor.mapa_etapas.Orden_etapa.max())
         with st.container(key="tramo"):
             if minimo == maximo:
                 st.markdown(f"**Tramo de la línea** · OP {minimo}")
@@ -240,18 +235,21 @@ def filtros(df):
             else:
                 rango = st.slider("Tramo de la línea", minimo, maximo, (minimo, maximo),
                                   key="rango_op", format="OP %d")
-        alcance = df.Orden_OP.between(*rango) & df.Tipo.isin(seleccion_tipo or tipos)
-        opciones = df.loc[alcance].sort_values(["Orden_OP", "Operacion"]).Operacion.unique().tolist()
+        alcance_etapas = motor.mapa_etapas[
+            motor.mapa_etapas.Orden_etapa.between(*rango)
+            & motor.mapa_etapas.Tipo.isin(seleccion_tipo or tipos)
+        ]["Etapa"].unique().tolist()
+        opciones = sorted(alcance_etapas, key=lambda e: motor.mapa_etapas.loc[
+            motor.mapa_etapas.Etapa == e, "Orden_etapa"].iloc[0])
         vigentes = [op for op in st.session_state.get("sel_operaciones", []) if op in opciones]
         if vigentes != st.session_state.get("sel_operaciones", []):
             st.session_state.sel_operaciones = vigentes
         with st.container(key="maquinas"):
             seleccion_op = st.multiselect(
                 "Máquinas / Operaciones", opciones, key="sel_operaciones",
-                placeholder="Todas", help="Busca por identificador. Vacía la selección para incluir todas.")
-        if seleccion_op:
-            alcance &= df.Operacion.isin(seleccion_op)
-    return df.loc[fechas & alcance], df.loc[fechas, "Fecha"].unique(), inicio, fin, rango
+                placeholder="Todas", help="Busca por identificador de etapa. Vacía la selección para incluir todas.")
+        etapas_mostradas = seleccion_op or opciones
+    return dias_seleccionados, etapas_mostradas, inicio, fin, rango
 
 
 def imagen_svg(clase, contenido, viewbox="0 0 24 24"):
@@ -268,6 +266,7 @@ def icono(nombre):
         "destellos": '<path d="M10 21C9 15 7 13 2 12c5-1 7-3 8-9 1 6 3 8 8 9-5 1-7 3-8 9Zm9-20c.5 3 1.5 4 4 4.5C20.5 6 19.5 7 19 10c-.5-3-1.5-4-4-4.5 2.5-.5 3.5-1.5 4-4.5Z"/>',
         "subida": '<path d="m3 17 6-6 4 4 8-8m-6 0h6v6"/>',
         "aviso": '<path d="M10.3 4.5 3 18a1.5 1.5 0 0 0 1.3 2.2h15.4A1.5 1.5 0 0 0 21 18L13.7 4.5a2 2 0 0 0-3.4 0ZM12 9v4m0 3h.01"/>',
+        "llave": '<path d="M14.5 6.5a4 4 0 1 0 0 5.66L17 14.5l1.5-1.5L17 11.5l1.5-1.5L17 8.5 18.5 7 17 5.5l-2.5 1Z"/>',
     }
     color = "#0045a5" if nombre in ("destellos", "subida") else "#183958"
     return imagen_svg(
@@ -282,7 +281,34 @@ def indicador(grafico, valor, etiqueta, delta=""):
             f'<span>{etiqueta}</span></div>{delta}</div>')
 
 
-def resumen(k, alertas_op, registro_op, datos_locales):
+def _cuerpo_alerta(a: dict, registro: list | None = None):
+    """Contenido detallado (causas y consecuencias). Nunca se muestra el JSON en bruto;
+    los datos numéricos se formatean como texto, no con st.json."""
+    d = a.get("detalle", {})
+    if d.get("efecto_observado"):
+        st.markdown(f"**Evidencia / qué se observa:** {d['efecto_observado']}")
+    if d.get("causa_probable"):
+        st.markdown(f"**Causa probable:** {d['causa_probable']}")
+    if d.get("otras_causas_posibles"):
+        st.markdown("**Otras causas posibles:**\n" +
+                    "\n".join(f"- {c}" for c in d["otras_causas_posibles"]))
+    if d.get("impacto_en_el_analisis"):
+        st.markdown(f"**Consecuencia analítica:** {d['impacto_en_el_analisis']}")
+    if d.get("recomendacion"):
+        st.info(f"**Recomendación:** {d['recomendacion']}")
+    if d.get("dias_afectados"):
+        st.caption(f"Días afectados ({len(d['dias_afectados'])}): " + ", ".join(d["dias_afectados"]))
+    if d.get("datos"):
+        pares = " · ".join(f"**{k}**: {v}" for k, v in d["datos"].items())
+        st.caption(pares)
+    if registro:
+        st.markdown("**Tratamiento aplicado en la limpieza:**")
+        for e in registro:
+            st.markdown(f"- {e.get('descripcion', '')} → *{str(e.get('accion', '')).replace('_', ' ')}* "
+                        f"({e.get('filas_afectadas', 0)} filas)")
+
+
+def kpis_cabecera(k: pd.DataFrame):
     media = k.Dp.mean()
     delta = media - DP_MIN
     delta_html = ""
@@ -305,44 +331,15 @@ def resumen(k, alertas_op, registro_op, datos_locales):
     disponibilidad = f"{media:.1f} %" if pd.notna(media) else "—"
     dp = int(k.Incumple_Dp.sum())
     tcy = int(k.Incumple_Tcy.sum())
-    aclaracion_dp = f" · {k.Dp.isna().sum()} sin Dp" if k.Dp.isna().any() else ""
-    aclaracion_tcy = f" · {k.Tcy.isna().sum()} sin Tcy" if k.Tcy.isna().any() else ""
+    sin_tcy = int(k.Tcy.isna().sum())
+    aclaracion_tcy = f" · {sin_tcy} sin dato" if sin_tcy else ""
     st.html(
         '<div class="kpis" aria-label="Indicadores de la línea">'
-        + indicador(gauge, disponibilidad, "Disponibilidad media", delta_html)
-        + indicador(icono("objetivo"), f"{dp} / {len(k)}", f"Por debajo del {DP_MIN:g} % de Dp{aclaracion_dp}")
+        + indicador(gauge, disponibilidad, "Disponibilidad media (Dp)", delta_html)
+        + indicador(icono("objetivo"), f"{dp} / {len(k)}", f"Por debajo del {DP_MIN:g} % de Dp")
         + indicador(icono("reloj"), f"{tcy} / {len(k)}", f"Por encima de {TCY_MAX:g} cmin{aclaracion_tcy}")
         + "</div>"
     )
-
-    top = k.loc[k.Indice.idxmax()]
-    baja_dp = k.loc[k.Incumple_Dp].nsmallest(2, "Dp")
-    alto_ciclo = k.loc[k.Incumple_Tcy].nlargest(1, "Tcy")
-    with st.container(key="insights"):
-        st.html(f'<h2>{icono("destellos")} Insights principales</h2>')
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if top.Indice > 0:
-                insight("subida", "Mayor índice de penalización", f"{top.TAP:.1f} h de parada propia.", top.Operacion)
-            else:
-                insight("subida", "Índice de penalización", "Sin un índice positivo en la selección.")
-        with c2:
-            if baja_dp.empty:
-                texto = "Todas las Dp calculables cumplen." if k.Dp.notna().any() else "Sin datos suficientes."
-                insight("aviso", "Disponibilidad", texto)
-            else:
-                repetida = len(baja_dp) > 1 and baja_dp.iloc[0].Operacion == top.Operacion
-                fila = baja_dp.iloc[int(repetida)]
-                titulo = "Otra prioridad de disponibilidad" if repetida else "Menor disponibilidad"
-                insight("aviso", titulo, f"Dp de {fila.Dp:.1f} %.", fila.Operacion)
-        with c3:
-            if alto_ciclo.empty:
-                texto = "Todos los ciclos calculables cumplen." if k.Tcy.notna().any() else "Sin datos suficientes."
-                insight("reloj", "Tiempo de ciclo", texto)
-            else:
-                fila = alto_ciclo.iloc[0]
-                insight("reloj", "Mayor tiempo de ciclo", f"{fila.Tcy:.1f} cmin.", fila.Operacion)
-    calidad(alertas_op, registro_op, datos_locales)
 
 
 def insight(simbolo, titulo, texto, op=None):
@@ -357,10 +354,52 @@ def insight(simbolo, titulo, texto, op=None):
             st.html(f'<span class="insight-text">{texto}</span>')
 
 
-def calidad(alertas_op, registro_op, datos_locales):
-    lista = sorted(
-        (a for grupo in alertas_op.values() for a in grupo),
-        key=lambda a: (a.get("nivel") != "error", a.get("orden_op") or 0))
+def insights(k: pd.DataFrame, resultado: LI.Resultado):
+    """Conclusiones del motor oficial (determinista + mantenimiento), no una repetición
+    de los KPI de cabecera. Se calculan siempre sobre la línea completa seleccionada por
+    días (no sobre el recorte de tramo/tipo/máquinas, que es solo de presentación)."""
+    with st.container(key="insights"):
+        st.html(f'<h2>{icono("destellos")} Insights principales</h2>')
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            principales = k.loc[k.Es_principal.fillna(False) & k.Es_relevante.fillna(False)]
+            if not principales.empty:
+                fila = principales.iloc[0]
+                insight("subida", "Cuello de botella (método de flechas)",
+                        f"Severidad {fila.Severidad:.0%} · {fila.Induce_vecinos:.1f} h inducidas "
+                        "a sus vecinas en el periodo.", fila.Operacion)
+            else:
+                insight("subida", "Cuello de botella", "Sin un cuello relevante en los días seleccionados.")
+        with c2:
+            mant = resultado.mantenimiento
+            top_mant = mant.loc[mant.rango_mant == 1] if not mant.empty else mant
+            if not top_mant.empty:
+                fila = top_mant.iloc[0]
+                insight("llave", "Prioridad de mantenimiento",
+                        f"{fila.TAP_medio_dia:.1f} h/día de parada propia (TAP).", fila.Etapa)
+            else:
+                insight("llave", "Prioridad de mantenimiento", "Sin datos suficientes.")
+        with c3:
+            baja_dp = k.loc[k.Incumple_Dp].nsmallest(1, "Dp")
+            alto_ciclo = k.loc[k.Incumple_Tcy].nlargest(1, "Tcy")
+            if not baja_dp.empty:
+                fila = baja_dp.iloc[0]
+                insight("aviso", "Menor disponibilidad", f"Dp de {fila.Dp:.1f} %.", fila.Operacion)
+            elif not alto_ciclo.empty:
+                fila = alto_ciclo.iloc[0]
+                insight("reloj", "Mayor tiempo de ciclo", f"{fila.Tcy:.1f} cmin.", fila.Operacion)
+            else:
+                texto = "Todas las Dp y Tcy calculables cumplen objetivo." if k.Dp.notna().any() else "Sin datos suficientes."
+                insight("aviso", "Objetivos", texto)
+
+
+def calidad(datos_locales: bool):
+    """Panel de calidad de datos: lista vertical con todas las incidencias (alertas.json),
+    cada una expandible; nunca se muestra el JSON en bruto. Las alertas son por operación
+    y no cambian con los filtros del periodo/tramo (son propiedades de los datos, no de
+    la selección)."""
+    lista = sorted(_alertas(), key=lambda a: (a.get("nivel") != "error", a.get("orden_op") or 0))
+    registro_op = _registro_por_operacion()
     errores = sum(a.get("nivel") == "error" for a in lista)
     etiqueta = (f"{errores} errores · {len(lista) - errores} advertencias"
                 if datos_locales and ALERTAS.exists() else "Sin informe asociado")
@@ -374,23 +413,34 @@ def calidad(alertas_op, registro_op, datos_locales):
         if not lista:
             st.caption("No hay alertas de limpieza asociadas a la fuente activa.")
             return
-        st.caption("Alertas del informe de limpieza para la línea completa.")
-        nivel = st.radio("Gravedad", ["Todas", "Errores", "Advertencias"], horizontal=True)
-        disponibles = {
-            a["id"]: a for a in lista
-            if nivel == "Todas" or (a.get("nivel") == "error") == (nivel == "Errores")
-        }
-        if disponibles:
-            def etiqueta_alerta(clave):
-                alerta = disponibles[clave]
-                return f"{alerta.get('operacion') or 'Línea'} · {alerta.get('titulo') or clave}"
-
-            seleccion = st.selectbox("Buscar alerta por código de operación o título",
-                                     list(disponibles), format_func=etiqueta_alerta)
-            alerta = disponibles[seleccion]
-            _cuerpo_alerta(alerta, registro_op.get(alerta.get("operacion")))
-        else:
-            st.caption("No hay alertas con esta gravedad.")
+        st.caption(f"{len(lista)} incidencias para la línea completa (no cambian con los filtros "
+                   "del periodo, el tramo ni las máquinas).")
+        c1, c2 = st.columns([1.3, 2])
+        with c1:
+            nivel = st.radio("Gravedad", ["Todas", "Errores", "Advertencias"], horizontal=True, key="calidad_nivel")
+        with c2:
+            busqueda = st.text_input("Buscar por código de operación o título", key="calidad_busqueda",
+                                     placeholder="p. ej. ST_0030", label_visibility="visible")
+        filtradas = [
+            a for a in lista
+            if (nivel == "Todas" or (a.get("nivel") == "error") == (nivel == "Errores"))
+            and (not busqueda.strip() or busqueda.strip().lower() in
+                 f"{a.get('id', '')} {a.get('operacion', '')} {a.get('titulo', '')}".lower())
+        ]
+        st.caption(f"Mostrando {len(filtradas)} de {len(lista)}.")
+        for a in filtradas:
+            invalidante = a.get("nivel") == "error"
+            icono_sev = "🔴" if invalidante else "🟠"
+            with st.container(key=f"alerta_{a['id']}", border=True):
+                st.markdown(f"{icono_sev} **{a.get('operacion') or 'Línea'}** · `{a['id']}` — {a.get('titulo', '')}")
+                resumen_corto = (a.get("resumen") or "")
+                st.caption(resumen_corto[:160] + ("…" if len(resumen_corto) > 160 else ""))
+                st.caption("Invalidante: excluye la operación del análisis." if invalidante
+                           else "Advertencia: no invalida la operación, pero conviene revisarla.")
+                with st.expander("Ver detalle"):
+                    _cuerpo_alerta(a, registro_op.get(a.get("operacion")))
+        if not filtradas:
+            st.caption("Ninguna incidencia coincide con el filtro.")
 
 
 def accesos():
@@ -402,7 +452,7 @@ def accesos():
                           on_click=navegar, args=(vista,))
 
 
-def selector_grafico(vista):
+def selector_grafico(vista, k, motor, dias_sel):
     categorias = {}
     for clave, (grupo, _) in VISTAS.items():
         categorias.setdefault(grupo, clave)
@@ -420,12 +470,22 @@ def selector_grafico(vista):
             if opcion != vista:
                 navegar(opcion)
                 st.rerun()
+    if k.empty:
+        st.info("No hay etapas en la selección para dibujar esta visualización.")
+        return
+    mostrar_grafico(vista, k, etapa_dia_con_fecha(motor), abrir_detalle=abrir_detalle,
+                    dp_min=DP_MIN, tcy_max=TCY_MAX, fechas=dias_sel)
 
 
-def detalle(k, f, fechas, alertas_op, registro_op):
+def detalle(motor, k, resultado, fechas):
     ops = k.Operacion.drop_duplicates().tolist()
+    if not ops:
+        st.warning("No hay etapas en la selección actual.")
+        return
     if st.session_state.get("operacion_detalle") not in ops:
-        st.session_state.operacion_detalle = k.loc[k.Indice.idxmax(), "Operacion"]
+        candidatas = k.loc[k.Es_principal.fillna(False)]
+        st.session_state.operacion_detalle = (candidatas.iloc[0].Operacion if not candidatas.empty
+                                              else k.iloc[0].Operacion)
     op = st.session_state.operacion_detalle
     i = ops.index(op)
     with st.container(key="selector_operacion", horizontal=True, vertical_alignment="bottom"):
@@ -437,7 +497,11 @@ def detalle(k, f, fechas, alertas_op, registro_op):
                   disabled=i == len(ops) - 1, on_click=navegar,
                   args=("detalle", ops[min(i + 1, len(ops) - 1)]))
     fila = k.loc[k.Operacion == op].iloc[0]
-    posicion = k.Indice.rank(ascending=False).loc[fila.name]
+    maquinas = LI.maquinas_de(motor, op)
+    if len(maquinas) > 1:
+        st.caption(f"Etapa con {len(maquinas)} operaciones en paralelo: {', '.join(maquinas)} "
+                   "(tiempos promediados, piezas y paradas sumadas).")
+    posicion = fila.Rango_det if pd.notna(fila.Rango_det) else None
     medidas = [
         ("Orden en línea", f"OP {int(fila.Orden_OP)}", None),
         ("Disponibilidad", f"{fila.Dp:.1f} %" if pd.notna(fila.Dp) else "—",
@@ -445,27 +509,34 @@ def detalle(k, f, fechas, alertas_op, registro_op):
         ("Tiempo de ciclo", f"{fila.Tcy:.1f} cmin" if pd.notna(fila.Tcy) else "—",
          f"{fila.Tcy - TCY_MAX:+.1f} cmin" if pd.notna(fila.Tcy) else None),
         ("Fpm", f"{fila.Fpm:.1f}" if pd.notna(fila.Fpm) else "—", None),
-        ("Puesto por penalización", str(int(posicion)), None),
+        ("Puesto · método de flechas", str(int(posicion)) if posicion is not None else "fuera de cadena", None),
     ]
     with st.container(key="metricas_detalle", horizontal=True, gap="small"):
         for etiqueta, valor, delta in medidas:
             st.metric(etiqueta, valor, delta, border=True,
                       delta_color="inverse" if etiqueta == "Tiempo de ciclo" else "normal")
-    for alerta in alertas_op.get(op, []):
+    if pd.notna(fila.Motivo) and fila.Motivo:
+        st.info(f"**Motivo de prioridad:** {fila.Motivo}")
+
+    alertas_op = [a for a in _alertas() if a.get("operacion") in maquinas]
+    registro_op_todo = _registro_por_operacion()
+    for alerta in alertas_op:
         with st.popover(alerta.get("titulo", alerta["id"]), icon=":material/warning:"):
-            _cuerpo_alerta(alerta, registro_op.get(op))
-    if not alertas_op.get(op) and registro_op.get(op):
+            _cuerpo_alerta(alerta, registro_op_todo.get(alerta.get("operacion")))
+    if not alertas_op and any(registro_op_todo.get(m) for m in maquinas):
         with st.expander("Tratamiento aplicado en la limpieza"):
-            for entrada in registro_op[op]:
-                st.write(entrada.get("descripcion", ""))
+            for m in maquinas:
+                for entrada in registro_op_todo.get(m, []):
+                    st.write(entrada.get("descripcion", ""))
     grafico = st.segmented_control("Visualización de la operación", ["diaria", "vecinas"],
                                    default="diaria", key="detalle_grafico",
                                    format_func=lambda v: {"diaria": "Evolución diaria", "vecinas": "Operaciones vecinas"}[v],
                                    label_visibility="collapsed")
-    mostrar_grafico(grafico or "diaria", k, f, op=op, dp_min=DP_MIN, tcy_max=TCY_MAX, fechas=fechas)
+    ed = etapa_dia_con_fecha(motor)
+    mostrar_grafico(grafico or "diaria", k, ed, op=op, dp_min=DP_MIN, tcy_max=TCY_MAX, fechas=fechas)
 
 
-def tabla(k, datos_locales):
+def tabla(k: pd.DataFrame, datos_locales: bool):
     consulta = st.text_input("Buscar operación", placeholder="Código, tipo u orden OP")
     filas = k[COLUMNAS]
     if consulta.strip():
@@ -477,11 +548,11 @@ def tabla(k, datos_locales):
     columnas = {c: st.column_config.NumberColumn(f"{c} (h)", format="%.1f")
                 for c in ("TBF", "TAP", "DES", "SAT", "TAI", "TR", "Induce_vecinos")}
     columnas.update({
-        "Orden_OP": "Orden OP", "Operacion": "Operación",
+        "Orden_OP": "Orden OP", "Operacion": "Etapa",
         "Dp": st.column_config.NumberColumn("Dp (%)", format="%.1f"),
         "Tcy": st.column_config.NumberColumn("Tcy (cmin)", format="%.1f"),
         "Fpm": st.column_config.NumberColumn("Fpm (paros / 1000 piezas)", format="%.1f"),
-        "Indice": st.column_config.NumberColumn("Índice", format="%.1f"),
+        "Severidad": st.column_config.NumberColumn("Severidad (flechas)", format="%.2f"),
         "%TAP": st.column_config.NumberColumn("TAP / TR (%)", format="%.1f"),
         "%TAI": st.column_config.NumberColumn("TAI / TR (%)", format="%.1f"),
     })
@@ -489,7 +560,8 @@ def tabla(k, datos_locales):
     if filas.empty:
         st.caption("Ninguna operación coincide con la búsqueda.")
     st.caption("TBF: funcionamiento. TAP: parada propia. DES: desabastecimiento. SAT: saturación. "
-               "TAI: DES + SAT. TR: TBF + TAP + TAI. Dp: disponibilidad. Tcy: tiempo de ciclo.")
+               "TAI: DES + SAT. TR: TBF + TAP + TAI. Dp: disponibilidad. Tcy: tiempo de ciclo. "
+               "Severidad y Categoría: método de flechas / prioridades oficiales (lossia/).")
     if datos_locales and INFORME.exists():
         with st.expander("Informe de limpieza de datos"):
             st.text(INFORME.read_text(encoding="utf-8"))
@@ -500,15 +572,17 @@ def menu():
         for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"), ("datos", "Tabla de datos")):
             st.button(etiqueta, on_click=navegar, args=(destino,), kwargs={"cerrar_menu": True}, width="stretch")
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
-        with st.expander("Configuración de datos"):
-            st.caption("Fuente predeterminada: CSV de Datos_limpios generados por limpieza.py.")
-            datos = st.file_uploader("CSV de datos (limpio)", type="csv")
-            config = st.file_uploader("CSV de configuración (si falta Orden_OP)", type="csv")
-            incluidas = st.toggle("Solo operaciones incluidas", value=True,
-                                  help="Aplica el indicador incluir_analisis del CSV.")
-            excluir_tap = st.toggle("Excluir días con TAP sospechoso", value=False,
-                                    help="Excluye las filas con flag_tap_sospechoso de todos los indicadores.")
-    return datos, config, incluidas, excluir_tap
+        desactualizado = LI.resultados_desactualizados(DIR_LIMPIOS, DIR_RESULTADOS)
+        if desactualizado:
+            st.caption(":orange[Resultados/ en disco está desactualizado respecto a Datos_limpios/. "
+                       "La interfaz no se ve afectada (recalcula siempre en vivo desde Datos_limpios/), "
+                       "pero conviene regenerarlo para otros consumidores (CLI, exportaciones).]")
+            if st.button("Regenerar Resultados/", width="stretch"):
+                import analisis
+                with st.spinner("Ejecutando analisis.py…"):
+                    analisis.main(DIR_LIMPIOS, DIR_RESULTADOS)
+                st.cache_data.clear()
+                st.success("Resultados/ actualizado.")
 
 
 vista = st.session_state.get("vista", "inicio")
@@ -523,43 +597,40 @@ with st.container(key="cabecera"):
         logo = b64encode((APP / "assets" / "horse.png").read_bytes()).decode("ascii")
         st.html(f'<img class="horse" src="data:image/png;base64,{logo}" alt="HORSE">', width="content")
         descarga = st.empty()
-        up_datos, up_config, solo_incluidas, excl_tap = menu()
+        menu()
 
-fuente = (up_datos.file_id if up_datos else None, up_config.file_id if up_config else None)
-if fuente != st.session_state.get("fuente"):
-    restablecer_filtros()
-    st.session_state.fuente = fuente
 try:
-    df = cargar(up_datos if up_datos is not None else DEFAULT_DATOS,
-                up_config if up_config is not None else DEFAULT_CONFIG)
-    if df.empty:
-        raise ValueError("El CSV no contiene filas válidas tras cruzar la configuración.")
+    motor = motor_actual()
 except (OSError, KeyError, ValueError, TypeError) as exc:
-    st.error(f"No se puede cargar la fuente. Revisa los CSV en Opciones → Configuración de datos. {exc}")
+    st.error(f"No se pueden cargar los datos oficiales de {DIR_LIMPIOS}. {exc}")
     st.stop()
 
-f, fechas, inicio, fin, rango = filtros(df)
-if solo_incluidas:
-    f = f[f.incluir_analisis]
-if excl_tap:
-    f = f[~f.flag_tap_sospechoso]
+dias_sel, etapas_mostradas, inicio, fin, rango = filtros(motor)
+resultado = resultado_para(motor, dias_sel)
+k_completa = construir_vista(resultado)
+k = k_completa[k_completa.Operacion.isin(etapas_mostradas)].reset_index(drop=True)
 
-k = kpis(f)
-n_ops = k.Operacion.nunique()
+n_ops = int(motor.mapa_etapas.loc[motor.mapa_etapas.Etapa.isin(k.Operacion), "Operacion_norm"].nunique()) if len(k) else 0
 unidades = "operación" if n_ops == 1 else "operaciones"
 periodo = f"{fmt_fecha(inicio, inicio.year != fin.year)} – {fmt_fecha(fin, anio=True)}"
 nombre_vista = titulo.get(vista) or VISTAS[vista][1]
+if resultado.fuente == LI.PERSISTIDOS:
+    fuente_txt = "Resultados/ (referencia oficial)"
+else:
+    n_dias_calc = len(resultado.dias)
+    fuente_txt = (f"Cálculo en vivo · {n_dias_calc} día{'s' if n_dias_calc != 1 else ''} "
+                  "(sin equivalente persistido)")
 contexto.html(
     f'<div class="header-line">Línea 5 · Montaje Valladolid</div><h1>{nombre_vista}</h1>'
     f'<div class="header-context"><span>{icono("calendario")}{periodo}</span>'
-    f'<span>OP {rango[0]} – {rango[1]}</span><span>{n_ops} {unidades}</span></div>'
+    f'<span>OP {rango[0]} – {rango[1]}</span><span>{len(k)} etapas · {n_ops} {unidades}</span>'
+    f'<span title="Trazabilidad: de dónde vienen los KPI y el método de flechas de esta selección">'
+    f'{fuente_txt}</span></div>'
 )
 descarga.download_button("Descargar CSV", k[COLUMNAS].to_csv(index=False).encode("utf-8"),
                          file_name="kpis_lossia.csv", mime="text/csv", disabled=k.empty,
                          icon=":material/download:", on_click="ignore", key="descarga")
-datos_locales = up_datos is None and up_config is None
-alertas_op = _alertas_por_op() if datos_locales else {}
-registro_op = _registro_por_op() if datos_locales else {}
+datos_locales = True
 
 if vista != "inicio":
     st.button("Resumen de la línea", icon=":material/arrow_back:", type="tertiary",
@@ -569,15 +640,16 @@ if k.empty:
     st.warning("No hay datos para los filtros seleccionados.")
     st.button("Restablecer filtros", on_click=restablecer_filtros, key="restablecer_vacio")
     if vista == "inicio":
-        calidad(alertas_op, registro_op, datos_locales)
+        calidad(datos_locales)
         accesos()
 elif vista == "inicio":
-    resumen(k, alertas_op, registro_op, datos_locales)
+    kpis_cabecera(k)
+    insights(k, resultado)
+    calidad(datos_locales)
     accesos()
 elif vista == "detalle":
-    detalle(k, f, fechas, alertas_op, registro_op)
+    detalle(motor, k, resultado, dias_sel)
 elif vista == "datos":
     tabla(k, datos_locales)
 else:
-    selector_grafico(vista)
-    mostrar_grafico(vista, k, f, abrir_detalle=abrir_detalle, dp_min=DP_MIN, tcy_max=TCY_MAX)
+    selector_grafico(vista, k, motor, dias_sel)
