@@ -18,7 +18,7 @@ CMIN_POR_HORA = 6000.0   # 1 h = 60 min = 6000 cmin
 
 # --- Estructura de la línea ---------------------------------------------------
 # Tipos que NO forman parte de la cadena serie del método determinista
-# (sí entran en KPIs y como posibles causas/efectos en el modelo ML).
+# (sí entran en los KPIs y en la lista de mantenimiento).
 TIPOS_FUERA_CADENA = {"Manutención / auxiliar"}
 
 # Grupos de estaciones en paralelo que se fusionan en una sola etapa.
@@ -29,14 +29,11 @@ TIPOS_FUERA_CADENA = {"Manutención / auxiliar"}
 GRUPOS_PARALELO: list[list[str]] | None = None
 DISTANCIA_MAX_PARALELO = 3   # posiciones de Orden_OP para agrupar paralelos detectados
 
+# --- Método determinista -----------------------------------------------------
+# Severidad mínima (fracción del tiempo requerido) para considerar un cuello de botella
+# "relevante". Por debajo, las flechas convergen pero la evidencia es débil (ruido).
+SEVERIDAD_MIN = 0.05
+
 # --- Granularidades -----------------------------------------------------------
 GLOBAL = "GLOBAL"
 NIVELES = ("global", "dia")
-
-# --- Modelo ML ----------------------------------------------------------------
-ML_N_BOOTSTRAP = 30          # remuestreos para medir la estabilidad de cada relación causa -> efecto
-ML_MIN_FRECUENCIA = 0.5      # una relación se considera "estable" si aparece en >= 50 % de remuestreos
-ML_SEMILLA = 42
-
-# --- Comparación --------------------------------------------------------------
-TOP_K = 10
