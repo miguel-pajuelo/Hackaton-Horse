@@ -32,6 +32,8 @@ NOMBRES = {"TBF": "Funcionando (TBF)", "TAP": "Parada propia (TAP)",
 st.set_page_config(page_title="LOSSIA · Máquinas penalizantes", layout="wide")
 
 DIAS = {1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes", 6: "Sábado", 7: "Domingo"}
+TIPOS_CORTOS = {"Estación (ST)": "Estaciones", "Puesto manual (PM)": "Puestos manuales",
+                "Manutención / auxiliar": "Manutención"}
 MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
 # Ajustes tipográficos finos (la fuente base se define en .streamlit/config.toml)
@@ -46,6 +48,28 @@ h2, h3 { font-weight: 600 !important; letter-spacing: -0.01em; }
 [data-testid="stMetricValue"] { font-weight: 600; font-variant-numeric: tabular-nums; }
 [data-testid="stCaptionContainer"] { color: #616E7C; }
 .stTabs [data-baseweb="tab"] p { font-weight: 500; letter-spacing: 0.01em; }
+section[data-testid="stSidebar"] { width: 320px !important; }
+/* Pills: activo = relleno; inactivo = contorno */
+button[data-variant="pills"] {
+    background: #FFFFFF !important; border: 1px solid #CBD2D9 !important; color: #7B8794 !important;
+}
+button[data-variant="pills"]:hover { border-color: #1F4E79 !important; color: #1F4E79 !important; }
+button[data-variant="pills"][aria-pressed="true"] {
+    background: #1F4E79 !important; border-color: #1F4E79 !important; color: #FFFFFF !important;
+}
+button[data-variant="pills"] p { font-weight: 500; font-variant-numeric: tabular-nums; color: inherit !important; }
+button[data-variant="segmented_control"][aria-checked="true"],
+button[data-variant="segmented_control"][data-selected="true"] {
+    background: #1F4E79 !important; border-color: #1F4E79 !important; color: #FFFFFF !important;
+}
+button[data-variant="segmented_control"] p { color: inherit !important; font-weight: 500; }
+[data-testid="stSidebar"] .periodo {
+    margin-top: 0.6rem; padding: 0.55rem 0.75rem; border-left: 3px solid #1F4E79;
+    background: #FFFFFF; font-size: 0.85rem; font-weight: 500; color: #1F2933;
+}
+[data-testid="stSidebar"] .periodo span {
+    display: block; font-size: 0.75rem; font-weight: 400; color: #7B8794;
+}
 [data-testid="stSidebar"] .etiqueta {
     font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.08em; color: #52606D; margin: 1.1rem 0 0.3rem 0;
@@ -54,17 +78,13 @@ h2, h3 { font-weight: 600 !important; letter-spacing: -0.01em; }
 """, unsafe_allow_html=True)
 
 
+def fmt_fecha(d, anio=False):
+    return f"{d.day} {MESES[d.month - 1]}" + (f" {d.year}" if anio else "")
+
+
 def etiqueta(texto):
-    st.sidebar.markdown(f'<div class="etiqueta">{texto}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="etiqueta">{texto}</div>', unsafe_allow_html=True)
 
-
-def rango_semana(anio, semana):
-    """'28 sep – 2 oct' para la semana ISO (lunes a viernes)."""
-    lunes = date.fromisocalendar(int(anio), int(semana), 1)
-    viernes = lunes + timedelta(days=4)
-    if lunes.month == viernes.month:
-        return f"{lunes.day}–{viernes.day} {MESES[lunes.month - 1]}"
-    return f"{lunes.day} {MESES[lunes.month - 1]} – {viernes.day} {MESES[viernes.month - 1]}"
 
 
 # ----------------------------------------------------------------------------
@@ -85,6 +105,11 @@ def cargar(datos_src, config_src):
             df[col] = default
     for col in ("incluir_analisis", "flag_npr_invalido", "flag_tap_sospechoso"):
         df[col] = df[col].astype(str).str.lower().isin(["true", "1"])
+    # Fecha real a partir de semana ISO + día (Jour: 1 = lunes ... 7 = domingo)
+    anio = df["Year"] if "Year" in df.columns else pd.Series(date.today().year, index=df.index)
+    dia = df["Jour"] if "Jour" in df.columns else pd.Series(1, index=df.index)
+    df["Fecha"] = [date.fromisocalendar(int(y), int(w), int(d))
+                   for y, w, d in zip(anio, df["Week"], dia)]
     return df
 
 
@@ -130,55 +155,87 @@ def kpis(df: pd.DataFrame) -> pd.DataFrame:
 # ----------------------------------------------------------------------------
 st.sidebar.title("LOSSIA")
 st.sidebar.caption("Línea 5 · Montaje Valladolid")
+
+# Los filtros se dibujan en este contenedor; las fuentes de datos quedan al final
+panel = st.sidebar.container()
+st.sidebar.divider()
 with st.sidebar.expander("Fuentes de datos", expanded=False):
     up_datos = st.file_uploader("CSV de datos (limpio)", type="csv")
     up_config = st.file_uploader("CSV de configuración (solo si los datos no traen Orden_OP)", type="csv")
 
 df = cargar(up_datos or DEFAULT_DATOS, up_config or DEFAULT_CONFIG)
 
-# --- Periodo: semanas y días como botones conmutables ---
-anio = int(df.Year.mode()[0]) if "Year" in df.columns else date.today().year
-semanas = sorted(int(w) for w in df.Week.unique())
-etiqueta("Semanas")
-sel_sem = st.sidebar.pills(
-    "Semanas", semanas, selection_mode="multi", default=semanas,
-    format_func=lambda w: f"S{w}", label_visibility="collapsed", key="sel_sem")
-st.sidebar.caption(" · ".join(f"S{w}: {rango_semana(anio, w)}" for w in semanas))
+with panel:
+    # --- Periodo: calendario con rango de fechas ---
+    fecha_min, fecha_max = min(df.Fecha), max(df.Fecha)
+    if "rango_fechas" not in st.session_state:
+        st.session_state.rango_fechas = (fecha_min, fecha_max)
 
-if "Jour" in df.columns:
-    dias = sorted(int(d) for d in df.Jour.unique())
-    etiqueta("Días de la semana")
-    sel_dia = st.sidebar.pills(
-        "Días de la semana", dias, selection_mode="multi", default=dias,
-        format_func=lambda d: DIAS.get(d, str(d))[:3], label_visibility="collapsed", key="sel_dia")
-else:
-    sel_dia = None
+    def aplicar_preset():
+        dias_atras = {"7 días": 6, "30 días": 29, "Todo": None}[st.session_state.preset]
+        ini = fecha_min if dias_atras is None else max(fecha_min, fecha_max - timedelta(days=dias_atras))
+        st.session_state.rango_fechas = (ini, fecha_max)
 
-# Sin selección = todo (evita dejar el panel vacío por accidente)
-sel_sem = sel_sem or semanas
-if sel_dia is not None:
-    sel_dia = sel_dia or dias
+    etiqueta("Periodo")
+    st.segmented_control(
+        "Atajos", ["7 días", "30 días", "Todo"], key="preset", on_change=aplicar_preset,
+        label_visibility="collapsed")
+    rango_fechas = st.date_input(
+        "Rango de fechas", key="rango_fechas", min_value=fecha_min, max_value=fecha_max,
+        format="DD/MM/YYYY", label_visibility="collapsed",
+        on_change=lambda: st.session_state.update(preset=None))  # rango manual: se apaga el atajo
+    # Mientras se elige el segundo extremo, el rango llega incompleto
+    if isinstance(rango_fechas, (tuple, list)):
+        f_ini = rango_fechas[0] if len(rango_fechas) > 0 else fecha_min
+        f_fin = rango_fechas[1] if len(rango_fechas) > 1 else f_ini
+    else:
+        f_ini = f_fin = rango_fechas
 
-etiqueta("Filtros")
+    if "Jour" in df.columns:
+        dias = sorted(int(d) for d in df.Jour.unique())
+        etiqueta("Días de la semana")
+        sel_dia = st.pills(
+            "Días", dias, selection_mode="multi", default=dias,
+            format_func=lambda d: DIAS.get(d, str(d))[:3], label_visibility="collapsed", key="sel_dia")
+        sel_dia = sorted(sel_dia) or dias
+    else:
+        sel_dia = None
 
-tipos = sorted(df.Tipo.dropna().unique())
-sel_tipo = st.sidebar.multiselect("Tipo de operación", tipos, default=tipos)
+    # Resumen: días con datos dentro de la selección
+    en_rango = df.Fecha.between(f_ini, f_fin)
+    if sel_dia is not None:
+        en_rango &= df.Jour.isin(sel_dia)
+    n_dias = df.loc[en_rango, "Fecha"].nunique()
+    st.markdown(
+        f'<div class="periodo">{fmt_fecha(f_ini)} – {fmt_fecha(f_fin, anio=True)}'
+        f'<span>{n_dias} días con datos</span></div>', unsafe_allow_html=True)
 
-orden_min, orden_max = int(df.Orden_OP.min()), int(df.Orden_OP.max())
-rango = st.sidebar.slider("Tramo de la línea (orden OP)", orden_min, orden_max, (orden_min, orden_max))
-top_n = st.sidebar.slider("Top N en rankings", 5, 30, 10)
+    # --- Alcance ---
+    etiqueta("Tipo de operación")
+    tipos = sorted(df.Tipo.dropna().unique())
+    sel_tipo = st.pills(
+        "Tipo de operación", tipos, selection_mode="multi", default=tipos,
+        format_func=lambda t: TIPOS_CORTOS.get(t, t), label_visibility="collapsed", key="sel_tipo")
+    sel_tipo = sel_tipo or tipos
 
-etiqueta("Criterios de limpieza")
-solo_incluidas = st.sidebar.checkbox(
-    "Solo operaciones incluidas en el análisis", value=True,
-    help="Excluye las operaciones marcadas con incluir_analisis = False "
-         "(fuera de servicio, contadores de manutención…).")
-excl_tap = st.sidebar.checkbox(
-    "Excluir días con TAP sospechoso", value=False,
-    help="flag_tap_sospechoso: TAP de día completo con la línea produciendo o >5000 paradas/día "
-         "(p.ej. ST2235). Actívalo para ver el ranking sin esas señales erráticas.")
+    etiqueta("Tramo de la línea")
+    orden_min, orden_max = int(df.Orden_OP.min()), int(df.Orden_OP.max())
+    rango = st.slider("Tramo de la línea (orden OP)", orden_min, orden_max, (orden_min, orden_max),
+                      label_visibility="collapsed", format="OP %d")
+    etiqueta("Tamaño de los rankings")
+    top_n = st.slider("Top N en rankings", 5, 30, 10, label_visibility="collapsed", format="Top %d")
 
-f = df[df.Week.isin(sel_sem) & df.Orden_OP.between(*rango) & df.Tipo.isin(sel_tipo)]
+    etiqueta("Criterios de limpieza")
+    solo_incluidas = st.toggle(
+        "Solo operaciones incluidas", value=True,
+        help="Excluye las operaciones marcadas con incluir_analisis = False "
+             "(fuera de servicio, contadores de manutención…).")
+    excl_tap = st.toggle(
+        "Excluir días con TAP sospechoso", value=False,
+        help="flag_tap_sospechoso: TAP de día completo con la línea produciendo o >5000 paradas/día "
+             "(p.ej. ST2235). Actívalo para ver el ranking sin esas señales erráticas.")
+
+f = df[df.Fecha.between(f_ini, f_fin) & df.Orden_OP.between(*rango) & df.Tipo.isin(sel_tipo)]
 if sel_dia is not None:
     f = f[f.Jour.isin(sel_dia)]
 if solo_incluidas:
@@ -195,7 +252,7 @@ k = kpis(f)
 # Cabecera + KPIs
 # ----------------------------------------------------------------------------
 st.title("Máquinas penalizantes · Línea 5 Montaje Valladolid")
-txt_sem = ", ".join(f"S{w}" for w in sorted(sel_sem))
+txt_sem = f"{fmt_fecha(f_ini)} – {fmt_fecha(f_fin, anio=True)}"
 txt_dia = ("todos los días" if sel_dia is None or len(sel_dia) == len(dias)
            else ", ".join(DIAS.get(d, str(d)) for d in sorted(sel_dia)))
 st.caption(f"{txt_sem} · {txt_dia} · operaciones {rango[0]}–{rango[1]} · "
@@ -341,15 +398,12 @@ with tab_maq:
     with cc1:
         st.markdown("**Evolución diaria del tiempo**")
         ev = f[f.Operacion == op].copy()
-        eje = ["Week", "Jour"] if "Jour" in ev.columns else ["Week"]
-        ev = ev.groupby(eje, as_index=False)[list(COLORES)].sum()
-        if "Jour" in ev.columns:
-            ev["Periodo"] = "S" + ev.Week.astype(str) + " · " + ev.Jour.map(lambda d: DIAS.get(int(d), str(d))[:3])
-        else:
-            ev["Periodo"] = "S" + ev.Week.astype(str)
+        ev = ev.groupby("Fecha", as_index=False)[list(COLORES)].sum()
+        ev["Periodo"] = pd.to_datetime(ev.Fecha)
         larga = ev.melt(id_vars="Periodo", value_vars=list(COLORES), var_name="Tipo", value_name="h")
         fig = px.bar(larga, x="Periodo", y="h", color="Tipo", color_discrete_map=COLORES)
-        fig.update_layout(height=380, barmode="stack", yaxis_title="horas")
+        fig.update_layout(height=380, barmode="stack", yaxis_title="horas", xaxis_title=None)
+        fig.update_xaxes(tickformat="%d %b", rangebreaks=[dict(bounds=["sat", "mon"])])
         st.plotly_chart(fig, width="stretch")
     with cc2:
         st.markdown("**Vecinas en la línea (±3 operaciones)**")
