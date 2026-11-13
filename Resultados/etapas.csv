@@ -1,0 +1,86 @@
+Operacion_norm,Orden_OP,Tipo,Etapa,n_paralelo,Orden_etapa,en_cadena
+ST_0015,1,Estación (ST),ST_0015,1,1,True
+ST_0020,2,Estación (ST),ST_0020,1,2,True
+ST_0040,4,Estación (ST),ST_0040,1,4,True
+ST_0050,5,Estación (ST),ST_0050,1,5,True
+PM_0090,6,Puesto manual (PM),PM_0090,1,6,True
+ST_0095,7,Estación (ST),ST_0095,1,7,True
+ST_0100,8,Estación (ST),ST_0100,1,8,True
+PM_0110,9,Puesto manual (PM),PM_0110,1,9,True
+ST_0115,10,Estación (ST),ST_0115,1,10,True
+ST_0120,11,Estación (ST),ST_0120,1,11,True
+ST_0140,12,Estación (ST),ST_0140,1,12,True
+ST_0150,13,Estación (ST),ST_0150,1,13,True
+ST_0160,14,Estación (ST),ST_0160,1,14,True
+ST_0230,15,Estación (ST),ST_0230,1,15,True
+ST_0240,16,Estación (ST),ST_0240,1,16,True
+ST_0250,17,Estación (ST),ST_0250,1,17,True
+ST_0261,18,Estación (ST),ST_0261,1,18,True
+ST_0259,19,Estación (ST),ST_0259,1,19,True
+ST_0260,20,Estación (ST),ST_0260,1,20,True
+ST_0265,21,Estación (ST),ST_0265,1,21,True
+ST_0270,22,Estación (ST),ST_0270,1,22,True
+ST_0280,23,Estación (ST),ST_0280,1,23,True
+ST_0290,24,Estación (ST),ST_0290,1,24,True
+ST_0295,25,Estación (ST),ST_0295,1,25,True
+ST_0300,26,Estación (ST),ST_0300,1,26,True
+ST_0305,27,Estación (ST),ST_0305,1,27,True
+ST_0340,28,Estación (ST),ST_0340,1,28,True
+PM_0350,29,Puesto manual (PM),PM_0350,1,29,True
+ST_0370,30,Estación (ST),ST_0370,1,30,True
+ST_0385,31,Estación (ST),ST_0385,1,31,True
+ST_0410,32,Estación (ST),ST_0410,1,32,True
+ST_1000,33,Estación (ST),ST_1000,1,33,True
+ManutPul,34,Manutención / auxiliar,ManutPul,1,34,False
+ST_2002,35,Estación (ST),ST_2002,1,35,True
+ST_2001,36,Estación (ST),ST_2001,1,36,True
+PM_2020,37,Puesto manual (PM),PM_2020,1,37,True
+ST_2030,38,Estación (ST),ST_2030,1,38,True
+ST_2035,39,Estación (ST),ST_2035,1,39,True
+ST_2040,40,Estación (ST),ST_2040,1,40,True
+ST_2050,41,Estación (ST),ST_2050,1,41,True
+ST_2070,42,Estación (ST),ST_2070,1,42,True
+PM_2087,43,Puesto manual (PM),PM_2087,1,43,True
+ST_2090,44,Estación (ST),ST_2090,1,44,True
+ST_2096,45,Estación (ST),ST_2096,1,45,True
+ST_2100,46,Estación (ST),ST_2100,1,46,True
+PM_2110,47,Puesto manual (PM),PM_2110,1,47,True
+PM_2120,48,Puesto manual (PM),PM_2120,1,48,True
+ST_2135,50,Estación (ST),ST_2135,1,50,True
+PM_2140,51,Puesto manual (PM),PM_2140,1,51,True
+PM_2150,52,Puesto manual (PM),PM_2150,1,52,True
+ST_2160,53,Estación (ST),ST_2160,1,53,True
+PM_2180,54,Puesto manual (PM),PM_2180,1,54,True
+PM_2190,55,Puesto manual (PM),PM_2190,1,55,True
+PM_2200,56,Puesto manual (PM),PM_2200,1,56,True
+ST_2215,57,Estación (ST),ST_2215,1,57,True
+ST_2220,58,Estación (ST),ST_2220,1,58,True
+ST_2225,59,Estación (ST),ST_2225,1,59,True
+PM_2230,60,Puesto manual (PM),PM_2230,1,60,True
+ST_2235,61,Estación (ST),ST_2235,1,61,True
+PM_2240,62,Puesto manual (PM),PM_2240,1,62,True
+PM_2250,63,Puesto manual (PM),PM_2250,1,63,True
+PM_2260,64,Puesto manual (PM),PM_2260,1,64,True
+PM_2270,65,Puesto manual (PM),PM_2270,1,65,True
+PM_2290,66,Puesto manual (PM),PM_2290,1,66,True
+PM_2300,67,Puesto manual (PM),PM_2300,1,67,True
+PM_2310,68,Puesto manual (PM),PM_2310,1,68,True
+PM_2330,69,Puesto manual (PM),PM_2330,1,69,True
+ST_2340,70,Estación (ST),ST_2340,1,70,True
+ST_2360,71,Estación (ST),ST_2360,1,71,True
+ST_2376,72,Estación (ST),ST_2375+ST_2376,2,72,True
+ST_2380,73,Estación (ST),ST_2380,1,73,True
+ST_2375,74,Estación (ST),ST_2375+ST_2376,2,72,True
+ST_2390,75,Estación (ST),ST_2390,1,75,True
+ST_2400,76,Estación (ST),ST_2400,1,76,True
+ST_2410,77,Estación (ST),ST_2410,1,77,True
+ST_0820,78,Estación (ST),ST_0820,1,78,True
+ST_0830,79,Estación (ST),ST_0830,1,79,True
+ST_0840,80,Estación (ST),ST_0840,1,80,True
+ST_0850,81,Estación (ST),ST_0850,1,81,True
+ST_3100,82,Estación (ST),ST_3100,1,82,True
+ST_3100_2,83,Estación (ST),ST_3100_2,1,83,True
+ST_3300,84,Estación (ST),ST_3300,1,84,True
+ManBM1_1,85,Manutención / auxiliar,ManBM1_1,1,85,False
+Ma_BM2_2,88,Manutención / auxiliar,Ma_BM2_2,1,88,False
+MANOP749,91,Manutención / auxiliar,MANOP749,1,91,False
