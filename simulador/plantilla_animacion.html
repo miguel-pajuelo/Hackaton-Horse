@@ -46,6 +46,15 @@
   #tip b { font-size: 13px; }
   #tip .fila { display: flex; justify-content: space-between; gap: 12px; }
   .nota { color: var(--muted); font-size: 12px; padding: 0 24px 18px; }
+  .bufzona { fill: transparent; cursor: pointer; }
+  .bufzona:hover { fill: rgba(184, 68, 31, .12); }
+  #editorBuf { position: fixed; display: none; z-index: 10; width: 210px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; box-shadow: 0 2px 0 var(--line); }
+  #editorBuf .eb-titulo { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  #editorBuf .eb-fila { display: flex; gap: 6px; margin-top: 6px; }
+  #editorBuf input { flex: 1; min-width: 0; font: inherit; text-align: center; border: 1px solid var(--line); border-radius: 2px; padding: 5px; background: transparent; color: var(--ink); }
+  #editorBuf button { padding: 5px 10px; }
+  #editorBuf .eb-ok { flex: 1; background: #B8441F; border-color: #B8441F; color: #F5F1E8; }
+  #editorBuf #ebCancelar { flex: 1; }
 </style>
 </head>
 <body>
@@ -88,6 +97,18 @@
 <div id="lienzo"><svg id="svg"></svg></div>
 <div class="nota" id="nota"></div>
 <div id="tip"></div>
+<div id="editorBuf">
+  <div class="eb-titulo" id="ebTitulo"></div>
+  <div class="eb-fila">
+    <button type="button" id="ebMenos" aria-label="Una pieza menos">−</button>
+    <input type="number" id="ebValor" min="0" max="30" step="1">
+    <button type="button" id="ebMas" aria-label="Una pieza más">+</button>
+  </div>
+  <div class="eb-fila">
+    <button type="button" class="eb-ok" id="ebOk">Aplicar</button>
+    <button type="button" id="ebCancelar">Cancelar</button>
+  </div>
+</div>
 
 <script>
 const DATOS = /*__DATOS__*/null;
@@ -131,6 +152,9 @@ for (let i = 0; i < N - 1; i++) {
   el("rect", { x: bx, y: by, width: vert ? G : L, height: vert ? L : G, class: "bufbg" + (CAP[i] !== CAP_MODA ? " bufmod" : ""), rx: 2 });
   const fill = el("rect", { x: bx, y: by, width: 0, height: vert ? 0 : G, class: "buffill", rx: 2 });
   bufs.push({ fill, vert, bx, by, L, G });
+  const zona = el("rect", { x: bx - 8, y: by - 8, width: (vert ? G : L) + 16, height: (vert ? L : G) + 16,
+                            class: "bufzona", "data-tramo": i });
+  zona.addEventListener("click", ev => abrirEditorBuffer(i, ev));
 }
 const defs = el("defs", {}); const mk = el("marker", { id: "pt", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
 el("path", { d: "M0,0 L10,5 L0,10 z", fill: "#9aa3b2" }, mk);
@@ -226,7 +250,33 @@ slider.oninput = () => { f = +slider.value; dibujar(); };
 document.getElementById("nota").textContent =
   `Simulación de eventos discretos con buffers de ${CAP_MODA} piezas` +
   (CAP.some(v => v !== CAP_MODA) ? ` (los tramos marcados tienen un tamaño propio)` : "") + `, calibrada con los datos de HORSE ` +
-  `(producción real media: ${DATOS.real.toLocaleString("es-ES")} motores/día). Haz clic en una etapa para resaltarla; pasa el ratón para ver su detalle.`;
+  `(producción real media: ${DATOS.real.toLocaleString("es-ES")} motores/día). Haz clic en una etapa para resaltarla o en el hueco entre dos etapas para cambiar su buffer; pasa el ratón para ver su detalle.`;
+// --- editor de buffers al hacer clic en un tramo (envía el cambio a la app) ---
+const eb = document.getElementById("editorBuf"), ebValor = document.getElementById("ebValor");
+let ebTramo = -1;
+function abrirEditorBuffer(i, ev) {
+  ebTramo = i;
+  document.getElementById("ebTitulo").textContent = `Buffer ${DATOS.etapas[i]} → ${DATOS.etapas[i + 1]}`;
+  ebValor.value = CAP[i];
+  eb.style.display = "block";
+  eb.style.left = Math.min(ev.clientX + 10, innerWidth - 225) + "px";
+  eb.style.top = Math.min(ev.clientY + 10, innerHeight - 130) + "px";
+  ebValor.focus(); ebValor.select();
+}
+const cerrarEditor = () => { eb.style.display = "none"; ebTramo = -1; };
+document.getElementById("ebMenos").onclick = () => ebValor.value = Math.max(0, (+ebValor.value || 0) - 1);
+document.getElementById("ebMas").onclick = () => ebValor.value = Math.min(30, (+ebValor.value || 0) + 1);
+document.getElementById("ebCancelar").onclick = cerrarEditor;
+function aplicarBuffer() {
+  if (ebTramo < 0) return;
+  const v = Math.max(0, Math.min(30, Math.round(+ebValor.value || 0)));
+  window.parent.postMessage({ tipo: "lossia-buffer", tramo: ebTramo, piezas: v }, "*");
+  document.getElementById("ebTitulo").textContent = "Recalculando la simulación…";
+  setTimeout(cerrarEditor, 1500);
+}
+document.getElementById("ebOk").onclick = aplicarBuffer;
+ebValor.addEventListener("keydown", e => { if (e.key === "Enter") aplicarBuffer(); if (e.key === "Escape") cerrarEditor(); });
+
 dibujar();
 </script>
 </body>
