@@ -29,6 +29,11 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "simulador"))
 
 from lossia import config as LC, interfaz as LI  # noqa: E402
+import importlib  # noqa: E402
+import graficos as _graficos  # noqa: E402
+# Recarga graficos.py en cada ejecución: si se edita con la app abierta, Streamlit no siempre
+# lo detecta (p. ej. en carpetas de OneDrive) y seguiría dibujando la versión antigua.
+importlib.reload(_graficos)
 from graficos import mostrar_grafico  # noqa: E402
 from centros import CENTROS  # noqa: E402
 from chat.conexion import conectar  # noqa: E402
@@ -957,7 +962,10 @@ def etapas_simulador(raiz):
 @st.cache_data(show_spinner=False, max_entries=20)
 def simulacion_html(raiz, mejorar, factor, buffer, version=None):
     # version: fecha de modificación del simulador y su plantilla, para no servir HTML antiguo de la caché
+    import simulador_linea as SL
     import animacion_linea as AL
+    importlib.reload(SL)   # recoge cambios del simulador aunque Streamlit no los detecte
+    importlib.reload(AL)
     # mejorar: tupla de (etapa, reducción %) para que cada etapa tenga su propia mejora
     return AL.construir_html(Path(raiz), {e: 1 - r / 100 for e, r in mejorar}, buffer=buffer, oscuro=True)
 
@@ -1043,7 +1051,7 @@ def buffers_por_tramo(etapas, general):
     return general if not over else valores
 
 
-def simulacion():
+def simulacion(k=None):
     import streamlit.components.v1 as components
     try:
         etapas, real = etapas_simulador(str(REPO))
@@ -1076,10 +1084,15 @@ def simulacion():
         html, base, mejora = simulacion_html(str(REPO), tuple(reducciones), 0.0, buffers, version_sim)
     with st.container(key="sim_kpis", horizontal=True, gap="medium"):
         st.metric("Producción real media", f"{real:,.0f}".replace(",", "."))
-        st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."))
+        st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."),
+                  help="Media de 5 jornadas simuladas seguidas (la animación muestra una de ellas).")
         quien = (mejorar[0] if len(mejorar) == 1 else f"{len(mejorar)} etapas") if mejorar else "nada"
         st.metric(f"Simulada · mejorando {quien}", f"{mejora:,}".replace(",", "."),
-                  delta=f"{mejora - base:+d} motores/día")
+                  delta=(f"{mejora - base:+d} motores/día" if abs(mejora - base) >= 5
+                         else f"≈ sin efecto ({mejora - base:+d})"),
+                  delta_color="normal" if abs(mejora - base) >= 5 else "off",
+                  help="Media de 5 jornadas simuladas con los mismos números aleatorios que la situación "
+                       "actual. Diferencias de menos de 5 motores/día están dentro del ruido del modelo.")
     components.html(html, height=900, scrolling=False)
 
     ranking = REPO / "simulador" / "salidas" / "ranking_simulado.csv"
@@ -1166,7 +1179,7 @@ elif vista not in ("inicio", "visualizaciones"):
               on_click=navegar, args=("inicio",), key="volver")
 
 if vista == "simulacion":
-    simulacion()
+    simulacion(k)
 elif vista == "visualizaciones":
     accesos()
 elif k.empty:

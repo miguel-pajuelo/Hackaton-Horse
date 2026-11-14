@@ -152,10 +152,23 @@ def _explicacion_ranking():
         )
 
 
+def indice_penalizacion(d):
+    """Severidad × TAP/TAI, en %: la severidad del cuello de botella ponderada por cuánto se para
+    la máquina por sí misma frente a lo que le provocan sus vecinas. Con TAP/TAI > 1 la severidad
+    crece; si es víctima de su entorno (TAP/TAI < 1), se reduce."""
+    cociente = d.TAP_TAI.replace([np.inf, -np.inf], np.nan).fillna(0)
+    return d.Severidad.fillna(0) * 100 * cociente
+
+
 def _ranking_cuellos(ranking, titulo):
     """Cuellos de botella coloreados según el criterio de HORSE: penalizante (se para más por sí
     misma, TAP/TAI > 1) o víctima de su entorno (sus paradas vienen de las vecinas)."""
     fig = go.Figure()
+    # La barra mide el índice de penalización (severidad × TAP/TAI) y el ranking está ordenado
+    # por él, así que la primera barra es siempre la más larga.
+    if "Penalizacion" not in ranking:
+        ranking = ranking.assign(Penalizacion=indice_penalizacion(ranking))
+    ranking = ranking.assign(_pos=np.arange(1, len(ranking) + 1))
     penal = ranking.Es_relevante.fillna(False).astype(bool)
     for filtro, nombre, color in ((penal, "Penalizante · TAP/TAI > 1", COLORES["TAP"]),
                                   (~penal, "Cuello víctima del entorno · TAP/TAI ≤ 1", GRIS_BARRA)):
@@ -165,18 +178,21 @@ def _ranking_cuellos(ranking, titulo):
         cociente = g.TAP_TAI.map(lambda v: f"{v:.2f}" if pd.notna(v) else "—")
         dias = g.Dias_principal.map(lambda v: f"{int(v)}" if pd.notna(v) else "—")
         fig.add_bar(
-            x=g.Severidad * 100, y=g.Operacion, orientation="h", name=nombre, marker_color=color,
-            customdata=np.column_stack((g.Orden_OP, cociente, g.Induce_vecinos.round(1), dias)),
-            text=[f"{s * 100:.1f} %  ·  TAP/TAI {c}" for s, c in zip(g.Severidad, cociente)],
+            x=g.Penalizacion, y=g.Operacion, orientation="h", name=nombre, marker_color=color,
+            customdata=np.column_stack((g.Orden_OP, cociente, g.Induce_vecinos.round(1), dias,
+                                        (g.Severidad * 100).round(1), g._pos)),
+            text=[f"{v:.1f}  ·  severidad {s * 100:.1f} % × TAP/TAI {c}"
+                  for v, s, c in zip(g.Penalizacion, g.Severidad, cociente)],
             textposition="outside", cliponaxis=False,
-            hovertemplate=("<b>%{y}</b> · OP %{customdata[0]}<br>Severidad: %{x:.1f} %<br>"
+            hovertemplate=("<b>#%{customdata[5]} %{y}</b> · OP %{customdata[0]}<br>"
+                           "Índice de penalización: %{x:.1f}<br>Severidad: %{customdata[4]} %<br>"
                            "TAP/TAI: %{customdata[1]}<br>Horas inducidas a la línea: %{customdata[2]} h<br>"
                            "Días como penalizante principal: %{customdata[3]}<extra></extra>"),
         )
     fig.update_layout(height=max(320, 120 + len(ranking) * 34), barmode="overlay", bargap=.35,
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
-    maximo = float((ranking.Severidad * 100).max())
-    fig.update_xaxes(title="Severidad (%)", rangemode="tozero", range=[0, maximo * 1.35])
+    fig.update_xaxes(title="Índice de penalización = severidad (%) × TAP/TAI", rangemode="tozero",
+                     range=[0, float(ranking.Penalizacion.max()) * 1.55 or 1])
     fig.update_yaxes(type="category", categoryorder="array", categoryarray=list(ranking.Operacion),
                      autorange="reversed", showgrid=False)
     return fig
@@ -195,8 +211,9 @@ def _ranking(k, dp_min):
     if criterio == "Severidad":
         # Todos los cuellos de botella, en el orden oficial del método (penalizantes primero,
         # desempatadas por días como principal y severidad); no solo los que cumplen TAP/TAI > 1
-        ranking = (k[k.Es_cuello.fillna(False)].dropna(subset=["Severidad"])
-                   .sort_values(["Rango_det", "Severidad"], ascending=[True, False]).head(top_n))
+        cuellos = k[k.Es_cuello.fillna(False).astype(bool)].dropna(subset=["Severidad"]).copy()
+        cuellos["Penalizacion"] = indice_penalizacion(cuellos)
+        ranking = cuellos.sort_values(["Penalizacion", "Rango_det"], ascending=[False, True]).head(top_n)
         if ranking.empty:
             st.info("Sin cuellos de botella en la selección.")
             return None, ranking

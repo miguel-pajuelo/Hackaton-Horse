@@ -29,7 +29,7 @@ import numpy as np
 from simulador_linea import H, cargar_parametros, piezas_necesarias, simular, tiempos_servicio
 
 
-def estados(p, res, ciclo, t0, t1, paso_s):
+def estados(p, res, ciclo, t0, t1, paso_s, origen=None):
     """Devuelve, por fotograma, una cadena con el estado de cada etapa y otra con los buffers."""
     S, C, D = res["S"], res["C"], res["D"]
     T = np.arange(t0, t1, paso_s)
@@ -48,7 +48,12 @@ def estados(p, res, ciclo, t0, t1, paso_s):
         salidos = np.searchsorted(np.sort(D[i]), T, side="right")
         entrados = np.searchsorted(S[i + 1], T, side="right")
         buf[:, i] = np.clip(salidos - entrados, 0, 35)
-    producidos = np.searchsorted(np.sort(D[-1]), T, side="right") - np.searchsorted(np.sort(D[-1]), t0)
+    # Motores terminados desde el inicio de la jornada, con el mismo origen en los dos escenarios
+    # (los terminados por la situación actual antes de t0): así quitar paradas nunca resta.
+    salidas = np.sort(D[-1])
+    if origen is None:
+        origen = int(np.searchsorted(salidas, t0))
+    producidos = np.searchsorted(salidas, T, side="right") - origen
     alfabeto = "0123456789abcdefghijklmnopqrstuvwxyz"
     return {
         "est": ["".join(map(str, fila)) for fila in est],
@@ -82,6 +87,22 @@ OSCURO = """
   .nota { display: none; }
   #lienzo { padding-bottom: 0; }
 """
+
+
+DIAS_MEDIDA = 5   # jornadas que se promedian para las cifras de producción
+
+
+def produccion_media(p, factores, buffer, horizonte, semilla, dias=DIAS_MEDIDA):
+    """Motores/día medios en `dias` jornadas seguidas tras una de calentamiento, con los mismos
+    números aleatorios en todos los escenarios (así las diferencias se deben a la mejora)."""
+    K = int((dias + 1.3) * horizonte / p["ciclo_s"].max()) + 50
+    t, paradas = tiempos_servicio(p, K, np.random.default_rng(semilla + 1))
+    for etapa, f in factores.items():
+        i = int(p.index[p["Etapa"] == etapa][0])
+        t[i] -= paradas[i] * (1 - f)
+    salidas = np.sort(simular(t, buffer, horizonte, guardar=True)["D"][-1])
+    medidos = np.searchsorted(salidas, (dias + 1) * horizonte) - np.searchsorted(salidas, horizonte)
+    return int(round(medidos / dias))
 
 
 def construir_html(raiz: Path, mejorar, factor: float = 0.0, buffer=8, paso: int = 60,
@@ -120,8 +141,12 @@ def construir_html(raiz: Path, mejorar, factor: float = 0.0, buffer=8, paso: int
             i = int(p.index[p["Etapa"] == etapa][0])
             t[i] -= paradas[i] * (1 - factores[etapa])
         res = simular(t, buffer, horizonte, guardar=True)
-        escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso)
-        piezas.append(res["piezas"])
+        if quitar is None:   # terminados antes de la jornada mostrada: mismo origen en los dos escenarios
+            origen = int(np.searchsorted(np.sort(res["D"][-1]), t0))
+        escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso, origen=origen)
+        # Las cifras de producción salen de varias jornadas seguidas (no solo de la animada):
+        # una sola jornada depende mucho de qué paradas largas caen ese día y del efecto de borde.
+        piezas.append(produccion_media(p, factores if quitar else {}, buffer, horizonte, semilla))
     datos = {
         "etapas": p["Etapa"].tolist(), "orden": p["Orden"].astype(int).tolist(),
         "n_par": p["n_par"].astype(int).tolist(), "paso": paso,
