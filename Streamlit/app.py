@@ -16,6 +16,7 @@ from datetime import date, timedelta
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,8 @@ sys.path.insert(0, str(REPO / "simulador"))
 from lossia import config as LC, interfaz as LI  # noqa: E402
 from graficos import mostrar_grafico  # noqa: E402
 from centros import CENTROS  # noqa: E402
+from chat.conexion import conectar  # noqa: E402
+from chat.herramientas import HerramientasLinea, responder  # noqa: E402
 
 TCY_MAX = LC.TCY_MAX_CMIN     # cmin — única fuente de verdad: lossia/config.py
 DP_MIN = LC.DP_MIN * 100      # % — lossia/config.py guarda la fracción (0.90)
@@ -58,6 +61,14 @@ ACCESOS = {
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
             "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "TAP_TAI",
             "Dias_principal", "Categoria"]
+
+# --- Pregunta a la línea (chat con el LLM; el cálculo lo hacen las herramientas de chat/) ---
+SUGERENCIAS = ["¿Qué máquina frena más la línea?",
+               "¿A qué 3 máquinas mando primero a mantenimiento?",
+               "¿Qué disponibilidad propia tiene ST-2390?",
+               "¿Qué es la parada inducida?"]
+MENSAJES_DE_CONTEXTO = 6     # mensajes previos de la misma conversación que se envían al modelo
+REVISAR_CONEXION_S = 60      # cada cuánto se vuelve a comprobar el servidor del modelo
 
 st.set_page_config(page_title="LOSSIA", layout="wide")
 st.html(APP / "lossia.css")
@@ -706,8 +717,13 @@ def detalle(motor, k, resultado, fechas):
                       delta_color=("inverse" if etiqueta == "Tiempo de ciclo"
                                    else "off" if etiqueta == "TAP / TAI" else "normal"),
                       delta_arrow="off" if etiqueta == "TAP / TAI" else "auto")
+    partes = []
+    if pd.notna(fila.Categoria) and fila.Categoria:
+        partes.append(f"**Categoría:** {fila.Categoria}")
     if pd.notna(fila.Motivo) and fila.Motivo:
-        st.info(f"**Motivo de prioridad:** {fila.Motivo}")
+        partes.append(f"**Motivo de prioridad:** {fila.Motivo}")
+    if partes:
+        st.info(" · ".join(partes))
 
     alertas_op = [a for a in _alertas() if a.get("operacion") in maquinas]
     registro_op_todo = _registro_por_operacion()
@@ -725,6 +741,135 @@ def detalle(motor, k, resultado, fechas):
                                    label_visibility="collapsed")
     ed = etapa_dia_con_fecha(motor)
     mostrar_grafico(grafico or "diaria", k, ed, op=op, dp_min=DP_MIN, tcy_max=TCY_MAX, fechas=fechas)
+
+
+def estado_llm(forzar=False):
+    """Estado de la conexión con el modelo (se reutiliza unos segundos para no sondear en cada
+    interacción). Lee LLM_* de las variables de entorno o de st.secrets."""
+    guardado = st.session_state.get("llm_estado")
+    if forzar or guardado is None or time.monotonic() - guardado[0] > REVISAR_CONEXION_S:
+        with st.spinner("Comprobando el servidor del modelo…"):
+            guardado = (time.monotonic(), conectar(st.secrets))
+        st.session_state.llm_estado = guardado
+    return guardado[1]
+
+
+def _historial_para_modelo(mensajes):
+    """Pares pregunta-respuesta válidos de esta conversación (sin los turnos que fallaron)."""
+    pares = []
+    for pregunta, respuesta in zip(mensajes[::2], mensajes[1::2]):
+        if not respuesta.get("error"):
+            pares += [{"role": "user", "content": pregunta["content"]},
+                      {"role": "assistant", "content": respuesta["content"]}]
+    return pares[-MENSAJES_DE_CONTEXTO:]
+
+
+def _sello(m):
+    """Estado de cada respuesta del asistente: verificada, cifras sin respaldo o sin datos."""
+    if m.get("error"):
+        st.error(m["content"], icon=":material/cloud_off:")
+        return
+    st.markdown(m["content"])
+    if m["sin_datos"]:
+        st.info("Sin datos de la línea: el modelo respondió sin consultar ninguna herramienta. "
+                "No tomes esta respuesta como un dato de la línea.", icon=":material/info:")
+    if not m["verificada"]:
+        st.warning("Revisar: no se pueden respaldar con los datos de la línea: "
+                   + ", ".join(m["cifras_no_verificadas"]), icon=":material/warning:")
+    elif not m["sin_datos"]:
+        st.success("Cifras verificadas con los datos de la línea", icon=":material/verified:")
+    if m["llamadas"]:
+        with st.expander("¿De dónde sale esto?"):
+            for nombre, argumentos in m["llamadas"]:
+                args = ", ".join(f"{c}={v!r}" for c, v in argumentos.items())
+                st.markdown(f"- `{nombre}({args})`")
+            st.json(m["resultados"], expanded=False)
+
+
+def pregunta_linea(motor, resultado, dias_sel, periodo_txt):
+    """Chat sobre la línea, el centro y los días seleccionados en la barra lateral."""
+    nombre_linea = f"{lineas[linea_activa]['nombre']} · {CENTROS[centro_activo]['nombre']}"
+    if not dias_sel:
+        st.warning("No hay ningún día productivo en el periodo seleccionado. Elige otro periodo o "
+                   "más días de la semana en la barra lateral para preguntar por la línea.")
+        return
+
+    # Una conversación por línea + días: cambiar el periodo no mezcla datos de otro periodo.
+    clave = f"{centro_activo}|{linea_activa}|{','.join(dias_sel)}"
+    historiales = st.session_state.setdefault("chat_historiales", {})
+    mensajes = historiales.setdefault(clave, [])
+    st.caption(f"Responde sobre **{nombre_linea}** · {periodo_txt} · {len(dias_sel)} días "
+               "productivos, los mismos que el resto del dashboard. Las cifras salen del motor "
+               "oficial; el modelo solo las redacta.")
+    if not mensajes and any(m for c, m in historiales.items() if c != clave):
+        st.info("Has cambiado la línea o el periodo: esta conversación empieza de cero para no "
+                "mezclar datos. La anterior se conserva si vuelves a esa selección.",
+                icon=":material/history:")
+
+    estado = estado_llm()
+    with st.container(key="chat_estado", horizontal=True, vertical_alignment="center"):
+        if estado.ok:
+            st.caption(f":green[●] {estado.mensaje}")
+        else:
+            st.warning(f"**Chat no disponible.** {estado.mensaje} El resto del dashboard "
+                       "sigue funcionando.", icon=":material/link_off:")
+        st.button("Comprobar conexión", key="chat_reconectar", type="tertiary",
+                  icon=":material/refresh:", on_click=lambda: st.session_state.pop("llm_estado", None))
+        if mensajes:
+            st.button("Nueva conversación", key="chat_limpiar", type="tertiary",
+                      icon=":material/delete_sweep:", on_click=lambda: historiales.pop(clave, None))
+
+    for m in mensajes:
+        with st.chat_message(m["role"]):
+            if m["role"] == "user":
+                st.markdown(m["content"])
+            else:
+                _sello(m)
+
+    if not mensajes and estado.ok:
+        with st.container(key="chat_sugerencias", horizontal=True, gap="small"):
+            for i, texto in enumerate(SUGERENCIAS):
+                st.button(texto, key=f"sugerencia_{i}",
+                          on_click=lambda t=texto: st.session_state.update(chat_sugerida=t))
+
+    escrita = st.chat_input("Pregunta sobre la línea…", key="chat_entrada", disabled=not estado.ok)
+    pregunta = escrita or st.session_state.pop("chat_sugerida", None)
+    if not pregunta or not estado.ok:
+        return
+
+    historial = _historial_para_modelo(mensajes)
+    mensajes.append({"role": "user", "content": pregunta})
+    with st.chat_message("user"):
+        st.markdown(pregunta)
+    with st.chat_message("assistant"):
+        with st.spinner("Consultando los datos de la línea…"):
+            try:
+                herramientas = HerramientasLinea(DIR_LIMPIOS, DIR_RESULTADOS, dias=dias_sel,
+                                                 motor=motor, resultado=resultado,
+                                                 nombre_linea=nombre_linea)
+                salida = responder(estado.cliente(), estado.config.modelo, herramientas, pregunta,
+                                   historial=historial)
+                respuesta = {"role": "assistant", "content": salida["respuesta"] or "(Sin respuesta)",
+                             **{c: salida[c] for c in ("verificada", "cifras_no_verificadas",
+                                                       "sin_datos", "llamadas", "resultados")}}
+            except ImportError as error:   # falta el SDK de OpenAI en este entorno
+                respuesta = {"role": "assistant", "error": True,
+                             "content": f"Falta un paquete en este entorno ({error.name or error}). "
+                                        "Instala las dependencias con "
+                                        "`pip install -r Streamlit/requirements.txt` y reinicia la app."}
+            except TimeoutError:
+                respuesta = {"role": "assistant", "error": True,
+                             "content": "El modelo ha tardado demasiado en responder. Prueba con "
+                                        "una pregunta más concreta o vuelve a intentarlo."}
+            except Exception as error:  # noqa: BLE001  (servidor caído, túnel caducado, clave…)
+                st.session_state.pop("llm_estado", None)
+                respuesta = {"role": "assistant", "error": True,
+                             "content": "No se ha podido obtener respuesta del modelo "
+                                        f"({type(error).__name__}). Si el modelo está en Kaggle, "
+                                        "puede que la sesión o el túnel hayan caducado."}
+        _sello(respuesta)
+    mensajes.append(respuesta)
+
 
 
 def tabla(k: pd.DataFrame, datos_locales: bool):
@@ -761,7 +906,7 @@ def tabla(k: pd.DataFrame, datos_locales: bool):
 def menu():
     with st.popover("Opciones", icon=":material/more_horiz:", key="acciones", on_change="rerun"):
         for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"), ("datos", "Tabla de datos"),
-                                 ("simulacion", "Simulación de la línea")):
+                                 ("simulacion", "Simulación de la línea"), ("pregunta", "Pregunta a la línea")):
             st.button(etiqueta, on_click=navegar, args=(destino,), kwargs={"cerrar_menu": True}, width="stretch")
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
         desactualizado = LI.resultados_desactualizados(DIR_LIMPIOS, DIR_RESULTADOS)
@@ -959,10 +1104,10 @@ if vista == "inicio":
     nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
 else:
     titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos", "simulacion": "Simulación de la línea",
-              "visualizaciones": "Visualizaciones"}
+              "visualizaciones": "Visualizaciones", "pregunta": "Pregunta a la línea"}
     nombre_vista = titulo.get(vista) or VISTAS[vista][1]
 NAV = (("inicio", "resumen"), ("visualizaciones", "visualizaciones"), ("simulacion", "simulación"),
-       ("detalle", "máquinas"), ("datos", "datos"))
+       ("detalle", "máquinas"), ("datos", "datos"), ("pregunta", "preguntar"))
 NAV_ACTIVO = "visualizaciones" if vista in VISTAS else vista
 logo = b64encode((APP / "assets" / "horse.png").read_bytes()).decode("ascii")
 with st.container(key="barra_nav", horizontal=True, vertical_alignment="center", gap="medium"):
@@ -1010,7 +1155,10 @@ elif vista not in ("inicio", "visualizaciones"):
     st.button("Resumen de la línea", icon=":material/arrow_back:", type="tertiary",
               on_click=navegar, args=("inicio",), key="volver")
 
-if vista == "simulacion":
+if vista == "pregunta":
+    # mismo motor, mismos días y mismo resultado que el resto del dashboard
+    pregunta_linea(motor, resultado, dias_sel, periodo)
+elif vista == "simulacion":
     simulacion()
 elif vista == "visualizaciones":
     accesos()
@@ -1035,58 +1183,7 @@ else:
     selector_grafico(vista, k, motor, dias_sel)
 
 
-# --- Chat con IA: botón flotante abajo a la derecha ---------------------------------
-SUGERENCIAS_CHAT = ["Resume las principales incidencias", "Detecta patrones en las paradas",
-                    "Propón acciones de mejora"]
-
-
-def alternar_chat():
-    st.session_state.chat_abierto = not st.session_state.get("chat_abierto", False)
-
-
-def enviar_chat(texto):
-    msgs = st.session_state.setdefault("chat_msgs", [])
-    msgs.append({"role": "user", "content": texto})
-    modelo = st.session_state.get("chat_llm")
-    if modelo is None:
-        respuesta = "Carga un modelo con «Cargar mi LLM» para que pueda analizar los datos de la línea."
-    else:
-        respuesta = f"Modelo «{modelo.name}» cargado. La conexión con el modelo todavía no está implementada."
-    msgs.append({"role": "assistant", "content": respuesta})
-
-
-@st.fragment
-def chat_ia():
-    abierto = st.session_state.get("chat_abierto", False)
-    if abierto:
-        with st.container(key="chat_panel"):
-            with st.container(key="chat_cabecera", horizontal=True, vertical_alignment="center"):
-                st.html('<div class="chat-titulo"><span class="chat-chispa">✦</span>Chat con IA</div>')
-                st.button("", icon=":material/close:", type="tertiary", key="chat_cerrar",
-                          on_click=alternar_chat, help="Cerrar")
-            st.html('<p class="chat-sub">Analiza los datos de la línea, detecta patrones '
-                    'o responde a tus preguntas.</p>')
-            st.file_uploader("Cargar mi LLM", type=["gguf", "safetensors", "bin"], key="chat_llm",
-                             help="Formatos: .gguf, .safetensors, .bin")
-            msgs = st.session_state.get("chat_msgs", [])
-            if msgs:
-                with st.container(key="chat_mensajes", height=220):
-                    for m in msgs:
-                        with st.chat_message(m["role"]):
-                            st.markdown(m["content"])
-            else:
-                st.html('<div class="chat-seccion">Sugerencias</div>')
-                for i, s in enumerate(SUGERENCIAS_CHAT):
-                    st.button(s, icon=":material/trending_up:", key=f"chat_sug_{i}", width="stretch",
-                              on_click=enviar_chat, args=(s,))
-            entrada = st.chat_input("Escribe un mensaje...", key="chat_texto", accept_file=True)
-            if entrada:
-                texto = entrada.text if hasattr(entrada, "text") else str(entrada)
-                if texto:
-                    enviar_chat(texto)
-                    st.rerun(scope="fragment")
-    st.button("", icon=":material/close:" if abierto else ":material/chat_bubble:", key="chat_fab",
-              on_click=alternar_chat, help="Cerrar chat" if abierto else "Chat con IA")
-
-
-chat_ia()
+# --- Acceso rápido al chat: botón flotante abajo a la derecha -------------------------
+if vista != "pregunta":
+    st.button("", icon=":material/chat_bubble:", key="chat_fab", on_click=navegar, args=("pregunta",),
+              help="Pregunta a la línea")
