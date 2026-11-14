@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "streamlit",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-3.13", "-m", "streamlit", "run", "Streamlit/app.py", "--server.headless", "true", "--server.port", "8512"],
+      "port": 8512
+    }
+  ]
+}

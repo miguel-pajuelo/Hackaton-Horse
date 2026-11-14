@@ -19,7 +19,11 @@
 [data-testid="stHeader"] { background: transparent; pointer-events: none; }
 [data-testid="stHeader"] button { pointer-events: auto; }
 [data-testid="stAppDeployButton"], #MainMenu,
-[data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none; }
+[data-testid="stDecoration"] { display: none; }
+[data-testid="stHeader"] [data-testid="stStatusWidget"],
+[data-testid="stHeader"] [data-testid="stStatusWidgetRunningIcon"] {
+    display: none !important;
+}
 .stMainBlockContainer {
     max-width: 1660px;
     padding: clamp(2rem, 2.65vw, 2.85rem) clamp(1.1rem, 1.5vw, 1.6rem) 3rem;
@@ -737,3 +741,5 @@
 .st-key-calidad [class*="st-key-detalle_alerta_advertencia_"] > [data-testid="stExpander"] > details > summary :is([data-testid="stExpanderIcon"], [data-testid="stExpanderIconError"], .stMarkdownColoredBackground) {
     color: #ffbd62 !important;
 }
+.calendario-alerta.advertencia .cal-celda.afectado,
+.calendario-alerta.advertencia .cal-leyenda .afectado { background: #e8a33d; }
