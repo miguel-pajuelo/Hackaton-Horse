@@ -8,7 +8,7 @@
 Proporcionar a los responsables de producción y mantenimiento de **HORSE** una solución tecnológica integral que elimine la subjetividad en planta:
 1. **Unificar el criterio analítico de paradas** diferenciando con rigor físico la **parada propia ($TAP$)** de la **parada inducida ($TAI = DES + SAT$)**, respondiendo objetivamente a por qué una máquina que se para poco puede ser la más penalizante.
 2. **Filtrar anomalías de telemetría** (ej. rebote de fotocélula en `ST2235` con 22.022 paradas/día) para evitar intervenciones mecánicas innecesarias.
-3. **Simular escenarios What-If** para evaluar el retorno de inversión (ROI) al intervenir cuellos de botella o insertar buffers intermedios (+108 motores/día en `ST-2390`).
+3. **Simular escenarios What-If** para evaluar el retorno de inversión (ROI) al intervenir cuellos de botella o insertar buffers intermedios con el gemelo digital de `simulador/` (p. ej. +29 motores/día eliminando las paradas de `PM_2250`).
 4. **Predecir averías imprevistas** basándose en el **tiempo acumulado de marcha continua sin fallos ($t_{\text{sin\_fallo}}$ vs $MTBF$)** mediante un modelo de desgaste de Weibull ($\beta = 1.85$).
 5. **Cerrar el ciclo agéntico (Agentic Closed-Loop)** mediante un copiloto con *Tool Calling* determinista (sin alucinaciones) capaz de generar borradores de órdenes de trabajo para SAP PM / GMAO.
 
@@ -32,12 +32,10 @@ El proyecto se encuentra organizado en módulos desacoplados y reproducibles:
 │
 ├── analisis_avanzado/     # Suite de Data Science, Fiabilidad y Módulos Autónomos
 │   ├── 02_analisis_penalizantes.ipynb           # Análisis de máquinas penalizantes e IPL
-│   ├── 03_solucion_tecnologica.ipynb            # Simulador de capacidad interactivo
 │   ├── 04_analisis_cuellos_botella_generico.ipynb # Módulo agnóstico aplicable a cualquier fábrica
 │   ├── 05_prediccion_fallos_diaria.ipynb        # Predictor diario por desgaste temporal (Weibull)
 │   ├── predictor_fallos_diario.py               # Motor CLI de predicción y prescripción diaria
 │   ├── analisis_cuellos_botella.py              # Clase universal BottleneckAnalyzer
-│   └── dashboard_lossia.html                    # Dashboard interactivo autónomo (offline)
 │
 ├── chat/                  # Copiloto Agéntico "Pregunta a la Línea"
 │   ├── herramientas.py    # Catálogo de herramientas deterministas (Zero-Hallucination)

@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from simulador_linea import H, cargar_parametros, piezas_necesarias, simular, tiempos_servicio
+from simulador_linea import H, cargar_parametros, piezas_necesarias, produccion_media, simular, tiempos_servicio
 
 
 def estados(p, res, ciclo, t0, t1, paso_s, origen=None):
@@ -89,22 +89,6 @@ OSCURO = """
 """
 
 
-DIAS_MEDIDA = 5   # jornadas que se promedian para las cifras de producción
-
-
-def produccion_media(p, factores, buffer, horizonte, semilla, dias=DIAS_MEDIDA):
-    """Motores/día medios en `dias` jornadas seguidas tras una de calentamiento, con los mismos
-    números aleatorios en todos los escenarios (así las diferencias se deben a la mejora)."""
-    K = int((dias + 1.3) * horizonte / p["ciclo_s"].max()) + 50
-    t, paradas = tiempos_servicio(p, K, np.random.default_rng(semilla + 1))
-    for etapa, f in factores.items():
-        i = int(p.index[p["Etapa"] == etapa][0])
-        t[i] -= paradas[i] * (1 - f)
-    salidas = np.sort(simular(t, buffer, horizonte, guardar=True)["D"][-1])
-    medidos = np.searchsorted(salidas, (dias + 1) * horizonte) - np.searchsorted(salidas, horizonte)
-    return int(round(medidos / dias))
-
-
 def construir_html(raiz: Path, mejorar, factor: float = 0.0, buffer=8, paso: int = 60,
                    semilla: int = 2026, oscuro: bool = False):
     """Simula la jornada en dos escenarios y devuelve (html, motores_actual, motores_mejora).
@@ -146,7 +130,7 @@ def construir_html(raiz: Path, mejorar, factor: float = 0.0, buffer=8, paso: int
         escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso, origen=origen)
         # Las cifras de producción salen de varias jornadas seguidas (no solo de la animada):
         # una sola jornada depende mucho de qué paradas largas caen ese día y del efecto de borde.
-        piezas.append(produccion_media(p, factores if quitar else {}, buffer, horizonte, semilla))
+        piezas.append(int(round(produccion_media(p, factores if quitar else {}, buffer, horizonte, semilla))))
     datos = {
         "etapas": p["Etapa"].tolist(), "orden": p["Orden"].astype(int).tolist(),
         "n_par": p["n_par"].astype(int).tolist(), "paso": paso,

@@ -137,6 +137,22 @@ def piezas_necesarias(p: pd.DataFrame, horizonte_s: float) -> int:
     return int(2.3 * horizonte_s / p["ciclo_s"].max()) + 50
 
 
+DIAS_MEDIDA = 5   # jornadas que se promedian para las cifras de producción
+
+
+def produccion_media(p, factores, buffer, horizonte, semilla, dias=DIAS_MEDIDA):
+    """Motores/día medios en `dias` jornadas seguidas tras una de calentamiento, con los mismos
+    números aleatorios en todos los escenarios (así las diferencias se deben a la mejora)."""
+    K = int((dias + 1.3) * horizonte / p["ciclo_s"].max()) + 50
+    t, paradas = tiempos_servicio(p, K, np.random.default_rng(semilla + 1))
+    for etapa, f in factores.items():
+        i = int(p.index[p["Etapa"] == etapa][0])
+        t[i] -= paradas[i] * (1 - f)
+    salidas = np.sort(simular(t, buffer, horizonte, guardar=True)["D"][-1])
+    medidos = np.searchsorted(salidas, (dias + 1) * horizonte) - np.searchsorted(salidas, horizonte)
+    return medidos / dias
+
+
 # ----------------------------------------------------------------------------
 # 3. Experimentos
 # ----------------------------------------------------------------------------
@@ -181,15 +197,16 @@ def main() -> None:
     if a.buffer is None:
         print("\nCalibrando buffer entre etapas…")
         mejor = None
-        for b in [0, 1, 2, 3, 5, 8]:
-            x = ejecutar(p, horizonte, b, a.reps, a.semilla)["piezas"]
+        for b in [0, 1, 2, 3, 5, 8, 10]:
+            x = produccion_media(p, {}, b, horizonte, a.semilla)
             print(f"  buffer={b}: {x:7.0f} motores/día")
             if mejor is None or abs(x - real) < abs(mejor[1] - real):
                 mejor = (b, x)
         a.buffer = mejor[0]
     base = ejecutar(p, horizonte, a.buffer, a.reps, a.semilla)
+    base["piezas"] = produccion_media(p, {}, a.buffer, horizonte, a.semilla)
     err = (base["piezas"] - real) / real * 100
-    print(f"\nEscenario base (buffer={a.buffer}): {base['piezas']:.0f} motores/día "
+    print(f"\nEscenario base (buffer={a.buffer}, media de {DIAS_MEDIDA} jornadas): {base['piezas']:.0f} motores/día "
           f"frente a {real:.0f} reales ({err:+.1f} %)")
 
     # 3.2 Validación por etapa: DES y SAT simulados frente a reales
@@ -208,7 +225,7 @@ def main() -> None:
         if fila["paradas_por_pieza"] == 0:
             ganancia = 0.0
         else:
-            ganancia = ejecutar(p, horizonte, a.buffer, a.reps, a.semilla, quitar=i)["piezas"] - base["piezas"]
+            ganancia = produccion_media(p, {fila["Etapa"]: 0.0}, a.buffer, horizonte, a.semilla) - base["piezas"]
         filas.append({"Etapa": fila["Etapa"], "Orden": fila["Orden"],
                       "TAP_h_dia": round(fila["TAP_real_h_dia"], 2),
                       "motores_dia_ganados": round(ganancia, 1),
