@@ -21,7 +21,19 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
+DIR_PRESENTACION = Path(__file__).resolve().parent
+
+def get_asset(name: str) -> Path:
+    p = DIR_PRESENTACION / name
+    return p if p.exists() else Path(name)
+
+def build_presentation(output_file: str | Path | None = None):
+    if output_file is None:
+        output_file = DIR_PRESENTACION / "Presentacion_LOSSIA_HORSE_Visual.pptx"
+    else:
+        output_file = Path(output_file)
+        if not output_file.is_absolute() and not output_file.parent.name:
+            output_file = DIR_PRESENTACION / output_file
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
@@ -220,7 +232,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
         p2.alignment = PP_ALIGN.CENTER
 
     # Gráfico visual de EDA incrustado
-    img_eda = Path("grafico_eda_lossia.png")
+    img_eda = get_asset("grafico_eda_lossia.png")
     if img_eda.exists():
         s2.shapes.add_picture(str(img_eda), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
@@ -232,7 +244,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
     add_navigation_header(s3, active_slug="dashboard", title_text="02 · DASHBOARD — Monitor Oficial de la Línea 5")
 
     # Incrustar la captura EXACTA del dashboard de la foto
-    img_dash = Path("dashboard_screenshot.jpg")
+    img_dash = get_asset("dashboard_screenshot.jpg")
     if img_dash.exists():
         # Captura centrada y nítida
         s3.shapes.add_picture(str(img_dash), Inches(0.8), Inches(1.45), width=Inches(11.73))
@@ -274,7 +286,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
         p2.alignment = PP_ALIGN.CENTER
 
     # Gráfico de propagación incrustado
-    img_prop = Path("grafico_propagacion_lossia.png")
+    img_prop = get_asset("grafico_propagacion_lossia.png")
     if img_prop.exists():
         s_prop.shapes.add_picture(str(img_prop), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
@@ -315,7 +327,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
         p2.alignment = PP_ALIGN.CENTER
 
     # Gráfico del simulador
-    img_sim = Path("grafico_simulador_lossia.png")
+    img_sim = get_asset("grafico_simulador_lossia.png")
     if img_sim.exists():
         s4.shapes.add_picture(str(img_sim), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
@@ -356,7 +368,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
         p2.alignment = PP_ALIGN.CENTER
 
     # Gráfico de predicción
-    img_pred = Path("grafico_prediccion_lossia.png")
+    img_pred = get_asset("grafico_prediccion_lossia.png")
     if img_pred.exists():
         s5.shapes.add_picture(str(img_pred), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
@@ -368,7 +380,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
     add_navigation_header(s6, active_slug="futuro", title_text="06 · MEJORAS FUTURAS — Hoja de Ruta para HORSE")
 
     # Gráfico de mejoras futuras en formato cuadrícula visual
-    img_futuro = Path("grafico_futuro_lossia.png")
+    img_futuro = get_asset("grafico_futuro_lossia.png")
     if img_futuro.exists():
         s6.shapes.add_picture(str(img_futuro), Inches(0.8), Inches(1.5), width=Inches(11.7))
 
