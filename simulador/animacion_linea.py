@@ -79,6 +79,8 @@ OSCURO = """
   .card { background: #FBF8F1; border-color: #C9BFA3; }
   .leyenda { padding: 4px 0; }
   #lienzo { padding-top: 4px; }
+  .nota { display: none; }
+  #lienzo { padding-bottom: 0; }
 """
 
 

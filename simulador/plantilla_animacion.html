@@ -278,6 +278,18 @@ document.getElementById("ebOk").onclick = aplicarBuffer;
 ebValor.addEventListener("keydown", e => { if (e.key === "Enter") aplicarBuffer(); if (e.key === "Escape") cerrarEditor(); });
 
 dibujar();
+
+// Dentro de la web, el marco se ajusta a la altura real de la animación (sin hueco debajo)
+function ajustarAltura() {
+  try {
+    const fin = document.getElementById("lienzo").getBoundingClientRect().bottom + scrollY;
+    const alto = Math.ceil(fin + 6);
+    if (window.parent !== window) window.parent.postMessage({ tipo: "lossia-altura", alto }, "*");
+  } catch (e) { /* abierto como archivo suelto: nada que ajustar */ }
+}
+addEventListener("load", ajustarAltura);
+addEventListener("resize", ajustarAltura);
+ajustarAltura();
 </script>
 </body>
 </html>

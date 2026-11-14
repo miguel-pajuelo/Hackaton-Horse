@@ -813,7 +813,8 @@ def etapas_simulador(raiz):
 
 
 @st.cache_data(show_spinner=False, max_entries=20)
-def simulacion_html(raiz, mejorar, factor, buffer):
+def simulacion_html(raiz, mejorar, factor, buffer, version=None):
+    # version: fecha de modificación del simulador y su plantilla, para no servir HTML antiguo de la caché
     import animacion_linea as AL
     return AL.construir_html(Path(raiz), mejorar, factor=factor, buffer=buffer, oscuro=True)
 
@@ -826,6 +827,15 @@ export default function(component) {
         const d = e.data;
         if (d && d.tipo === "lossia-buffer")
             setTriggerValue("buffer", { tramo: d.tramo, piezas: d.piezas, t: Date.now() });
+        if (d && d.tipo === "lossia-altura") {
+            for (const f of document.querySelectorAll("iframe")) {
+                if (f.contentWindow === e.source) {
+                    f.style.height = d.alto + "px"; f.setAttribute("height", d.alto);
+                    const caja = f.closest('[data-testid="stElementContainer"]');
+                    if (caja) { caja.style.height = d.alto + "px"; caja.style.minHeight = "0"; }
+                }
+            }
+        }
     };
     window.addEventListener("message", window.__lossiaPuente);
 }
@@ -909,13 +919,15 @@ def simulacion():
                                       "la producción real. Puedes cambiar tramos concretos en «Por tramo».")
         buffers = buffers_por_tramo(etapas, int(buffer))
     with st.spinner("Simulando la jornada…"):
-        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, buffers)
+        version_sim = tuple((REPO / "simulador" / f).stat().st_mtime_ns
+                            for f in ("plantilla_animacion.html", "animacion_linea.py", "simulador_linea.py"))
+        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, buffers, version_sim)
     with st.container(key="sim_kpis", horizontal=True, gap="medium"):
         st.metric("Producción real media", f"{real:,.0f}".replace(",", "."))
         st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."))
         st.metric(f"Simulada · mejorando {mejorar}", f"{mejora:,}".replace(",", "."),
                   delta=f"{mejora - base:+d} motores/día")
-    components.html(html, height=1080, scrolling=True)
+    components.html(html, height=900, scrolling=False)
 
     ranking = REPO / "simulador" / "salidas" / "ranking_simulado.csv"
     with st.expander("Ranking: motores/día ganados al eliminar las paradas de cada etapa"):
