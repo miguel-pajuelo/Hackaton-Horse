@@ -259,8 +259,119 @@ def generar_grafico_futuro():
     print("✅ Generado: grafico_futuro_lossia.png")
 
 
+def generar_grafico_propagacion():
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.8), facecolor=BG_COLOR, dpi=180)
+    
+    # -------------------------------------------------------------
+    # Panel 1: Mecanismo de Propagación en Cascada (SAT vs DES)
+    # -------------------------------------------------------------
+    ax1.set_facecolor(CARD_BG)
+    for spine in ax1.spines.values():
+        spine.set_color(BORDER_COLOR)
+        spine.set_linewidth(1.2)
+    ax1.axis('off')
+    
+    # Título del Panel 1
+    ax1.text(0.5, 0.94, 'Física del Flujo: Ondas de Bloqueo y Desabastecimiento', 
+             transform=ax1.transAxes, ha='center', va='center', fontsize=13, fontweight='bold', color=INK_NAVY)
+    ax1.text(0.5, 0.87, 'Propagación en dos direcciones ante una parada imprevista', 
+             transform=ax1.transAxes, ha='center', va='center', fontsize=10.5, color='#4A5568')
+    
+    # 1. Estación Central (Cuello de Botella)
+    rect_center = plt.Rectangle((0.38, 0.42), 0.24, 0.32, facecolor='#FDF0EC', edgecolor=TERRACOTTA, 
+                                linewidth=2.0, transform=ax1.transAxes, zorder=3)
+    ax1.add_patch(rect_center)
+    ax1.text(0.50, 0.64, 'CUELLO DE BOTELLA\nST_0260', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=11.5, fontweight='bold', color=TERRACOTTA, zorder=4)
+    ax1.text(0.50, 0.50, 'PARADA PROPIA (TAP)\n0.68 h / día', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=9.5, fontweight='bold', color=INK_NAVY, zorder=4)
+    
+    # 2. Aguas Arriba (Saturación / SAT / Blocking)
+    rect_up = plt.Rectangle((0.05, 0.45), 0.24, 0.26, facecolor='#FAF7F0', edgecolor=INK_NAVY, 
+                            linewidth=1.5, transform=ax1.transAxes, zorder=3)
+    ax1.add_patch(rect_up)
+    ax1.text(0.17, 0.62, 'AGUAS ARRIBA\nPuestos #15 - #19', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=10.5, fontweight='bold', color=INK_NAVY, zorder=4)
+    ax1.text(0.17, 0.50, 'SATURACIÓN (SAT)\nBuffer Lleno · Bloqueo', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=9.0, fontweight='bold', color='#D9532F', zorder=4)
+    
+    # Flecha inversa de Saturación (de cuello hacia aguas arriba)
+    ax1.annotate('', xy=(0.30, 0.58), xytext=(0.37, 0.58), xycoords='axes fraction',
+                 arrowprops=dict(facecolor='#D9532F', edgecolor='none', width=3.5, headwidth=8.0), zorder=5)
+    ax1.text(0.335, 0.66, 'SAT', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=9.0, fontweight='bold', color='#D9532F')
+
+    # 3. Aguas Abajo (Desabastecimiento / DES / Starving)
+    rect_down = plt.Rectangle((0.71, 0.45), 0.24, 0.26, facecolor='#FAF7F0', edgecolor=INK_NAVY, 
+                              linewidth=1.5, transform=ax1.transAxes, zorder=3)
+    ax1.add_patch(rect_down)
+    ax1.text(0.83, 0.62, 'AGUAS ABAJO\nPuestos #21 - #28', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=10.5, fontweight='bold', color=INK_NAVY, zorder=4)
+    ax1.text(0.83, 0.50, 'DESABASTECIMIENTO\nBuffer Vacío · Inanición', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=9.0, fontweight='bold', color='#1E3A8A', zorder=4)
+    
+    # Flecha directa de Desabastecimiento (de cuello hacia aguas abajo)
+    ax1.annotate('', xy=(0.70, 0.58), xytext=(0.63, 0.58), xycoords='axes fraction',
+                 arrowprops=dict(facecolor='#1E3A8A', edgecolor='none', width=3.5, headwidth=8.0), zorder=5)
+    ax1.text(0.665, 0.66, 'DES', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=9.0, fontweight='bold', color='#1E3A8A')
+
+    # Explicación del Pulmón (Buffer)
+    rect_buffer = plt.Rectangle((0.10, 0.08), 0.80, 0.24, facecolor='#F3EDE2', edgecolor=BORDER_COLOR, 
+                                linewidth=1.2, transform=ax1.transAxes, zorder=3)
+    ax1.add_patch(rect_buffer)
+    ax1.text(0.50, 0.22, 'EL ROL DEL PULMÓN (BUFFER INTERMEDIO)', transform=ax1.transAxes, ha='center', va='center',
+             fontsize=11.0, fontweight='bold', color=INK_NAVY, zorder=4)
+    ax1.text(0.50, 0.13, 'Con Pulmón: Absorbe microparadas y desacopla la perturbación\nSin Pulmón (Tramo Rígido): La onda de choque paraliza la fábrica al 100%', 
+             transform=ax1.transAxes, ha='center', va='center', fontsize=9.5, color='#4A5568', zorder=4)
+
+    # -------------------------------------------------------------
+    # Panel 2: El Multiplicador de Asfixia en Datos Reales (ST_0260 vs ST-2390)
+    # -------------------------------------------------------------
+    ax2.set_facecolor(CARD_BG)
+    for spine in ax2.spines.values():
+        spine.set_color(BORDER_COLOR)
+        spine.set_linewidth(1.2)
+        
+    ops = ['ST_0260\n(Puesto #20 · Sin Pulmón)', 'ST-2390\n(Puesto #75 · Con Pulmón)']
+    tap = [0.68, 4.27]
+    inducidas = [10.92, 3.82]
+    
+    x = np.arange(len(ops))
+    w = 0.35
+    
+    b1 = ax2.bar(x - w/2, tap, w, label='Parada Propia (TAP h/d)', color=TERRACOTTA, edgecolor=BORDER_COLOR, linewidth=1.2, zorder=3)
+    b2 = ax2.bar(x + w/2, inducidas, w, label='Paradas Inducidas a Vecinas (h/d)', color=INK_NAVY, edgecolor=BORDER_COLOR, linewidth=1.2, zorder=3)
+    
+    ax2.set_ylabel('Horas / día', fontsize=12, fontweight='bold', color=INK_NAVY)
+    ax2.set_title('Multiplicador de Impacto: El Caso Real de Valladolid L5\nST_0260 amplifica su parada x16 veces sobre sus vecinas', 
+                  fontsize=13, fontweight='bold', color=INK_NAVY, pad=14)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(ops, fontsize=11, fontweight='bold', color=INK_NAVY)
+    ax2.legend(frameon=True, facecolor=BG_COLOR, edgecolor=BORDER_COLOR, fontsize=10)
+    ax2.grid(axis='y', linestyle='--', alpha=0.5, color=MUTED_SAND, zorder=0)
+    ax2.set_ylim(0, 13.5)
+    
+    for bar in list(b1) + list(b2):
+        h = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2, h + 0.3, f'{h:.2f}h', ha='center', va='bottom', 
+                 fontsize=11, fontweight='bold', color=bar.get_facecolor())
+        
+    # Anotación del multiplicador x16
+    ax2.annotate('x 16.1 AMPLIFICACIÓN\n(¡Asfixia total de la línea!)', xy=(0.18, 11.2), xytext=(0.42, 11.8),
+                 arrowprops=dict(facecolor=TERRACOTTA, edgecolor='none', width=2.0, headwidth=6.0),
+                 fontsize=10.0, fontweight='bold', color=TERRACOTTA,
+                 bbox=dict(boxstyle='round,pad=0.4', facecolor='#FDF0EC', edgecolor=TERRACOTTA, linewidth=1.2))
+
+    plt.tight_layout()
+    plt.savefig('grafico_propagacion_lossia.png', facecolor=BG_COLOR, dpi=180)
+    plt.close()
+    print("✅ Generado: grafico_propagacion_lossia.png")
+
+
 if __name__ == '__main__':
     generar_grafico_eda()
     generar_grafico_simulador()
     generar_grafico_prediccion()
     generar_grafico_futuro()
+    generar_grafico_propagacion()

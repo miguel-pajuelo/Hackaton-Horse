@@ -10,12 +10,13 @@
 | Slide | Sección | Visual en Pantalla | Tiempo |
 | :---: | :--- | :--- | :---: |
 | **01** | **PORTADA** | Estilo editorial LOSSIA (ICAI · HORSE) | 0:20 min |
-| **02** | **EDA** | 16 días · 85 etapas · ST2235 (22.022 vs 2.382) · Descomposición TBF/TAP/TAI | 0:50 min |
-| **03** | **DASHBOARD** | El monitor en vivo oficial: ST_0260 (368.5h inducidas) vs ST_2235 | 1:00 min |
-| **04** | **SIMULADOR** | Escenario What-If ST-2390 (-30% TAP $\to$ +108 motores/día) | 0:50 min |
-| **05** | **INFORME DE POSIBLES FALLOS** | Semáforo diario, ranking de riesgo y modelo de desgaste Weibull ($t_{\text{sin\_fallo}}$ vs MTBF) | 1:00 min |
-| **06** | **MEJORAS FUTURAS** | Streaming IoT · Gemelo Digital 3D · Despliegue Multi-Planta · Auto-GMAO | 0:40 min |
-| **07** | **CIERRE** | Resumen y Turno de preguntas | 0:20 min |
+| **02** | **EDA** | 16 días · 85 etapas · ST2235 (22.022 vs 2.382) · Descomposición TBF/TAP/TAI | 0:45 min |
+| **03** | **DASHBOARD** | El monitor en vivo oficial: ST_0260 (368.5h inducidas) vs ST_2235 | 0:50 min |
+| **04** | **PROPAGACIÓN** | Mecanismo físico: Saturación (SAT) vs Desabastecimiento (DES) · Asfixia x16.1 | 0:50 min |
+| **05** | **SIMULADOR** | Escenario What-If ST-2390 (-30% TAP $\to$ +108 motores/día) | 0:45 min |
+| **06** | **INFORME DE FALLOS** | Semáforo diario, ranking de riesgo y modelo de desgaste Weibull ($t_{\text{sin\_fallo}}$ vs MTBF) | 0:50 min |
+| **07** | **MEJORAS FUTURAS** | Streaming IoT · Gemelo Digital 3D · Despliegue Multi-Planta · Auto-GMAO | 0:35 min |
+| **08** | **CIERRE** | Resumen y Turno de preguntas | 0:15 min |
 
 ---
 
@@ -53,7 +54,22 @@
 
 ---
 
-### SLIDE 04 · SIMULADOR (Capacidad What-If & ROI)
+### SLIDE 04 · PROPAGACIÓN (El Efecto Dominó: SAT vs DES)
+* **Lo que se ve:** KPIs superiores: `ST_0260` (Puesto #20), `0.68 h` TAP, `10.92 h` Inducidas a vecinas, `x 16.1` Multiplicador de asfixia.
+  * Diagrama 1 (Física del flujo): Onda inversa hacia aguas arriba (Saturación / SAT / Blocking) vs Onda directa hacia aguas abajo (Desabastecimiento / DES / Starving).
+  * Diagrama 2 (El rol del buffer): Cómo un pulmón intermedio absorbe microparadas frente a la rigidez de un tramo sin pulmón.
+  * Gráfico empírico comparativo: `ST_0260` (amplifica x16.1) vs `ST-2390` (amortiguada con buffer x0.9).
+* **Qué decir:**
+  > *"¿Cómo se propaga un cuello de botella en una línea en serie?*  
+  > *La parada se transmite en dos direcciones simultáneas:*  
+  > *Aguas arriba provoca SATURACIÓN (SAT o Blocking): la estación anterior no puede soltar su pieza, su buffer se llena y se detiene.*  
+  > *Aguas abajo provoca DESABASTECIMIENTO (DES o Starving): la estación posterior se queda sin suministro, agota su buffer y se detiene.*  
+  > *Y aquí está la clave: si el tramo carece de buffer intermedio, como ocurre en la estación ST_0260, la parada propia de sólo 40 minutos al día genera 10.9 horas de paradas inducidas a sus vecinas. ¡Un factor de amplificación de 16 veces!*  
+  > *Por eso, intervenir en ST_0260 no solo repara una máquina: libera a 10 puestos adyacentes del estrangulamiento."*
+
+---
+
+### SLIDE 05 · SIMULADOR (Capacidad What-If & ROI)
 * **Lo que se ve:** Escenario de intervención en `ST-2390`:
   * `TAP -30%` $\to$ `+1.28 h / día` recuperadas.
   * `-45%` paradas inducidas a vecinas.
@@ -65,7 +81,7 @@
 
 ---
 
-### SLIDE 05 · INFORME DE POSIBLES FALLOS (Predicción por Desgaste Temporal)
+### SLIDE 06 · INFORME DE POSIBLES FALLOS (Predicción por Desgaste Temporal)
 * **Lo que se ve:** Semáforo diario `⚠️ RIESGO MODERADO · JORNADA S43-D4`.
   * Top máquinas en riesgo hoy: `#1 ST0261 (65.6%)`, `#2 ST-2380 (56.9%)`, `#3 PM_0110 (55.2%)`.
   * Curva física de desgaste de Weibull ($\beta = 1.85$): relación entre horas continuas de marcha sin fallo ($t_{\text{sin\_fallo}}$) y $MTBF$.
@@ -77,7 +93,7 @@
 
 ---
 
-### SLIDE 06 · MEJORAS FUTURAS (Roadmap)
+### SLIDE 07 · MEJORAS FUTURAS (Roadmap)
 * **Lo que se ve:** Cuadrícula de 4 tarjetas visuales:
   1. *Streaming IoT en Tiempo Real* (OPC-UA / MQTT, < 1s latencia).
   2. *Gemelo Digital 3D & Simulación Discreta* (AnyLogic, buffers flexibles, AGVs).
@@ -92,7 +108,7 @@
 
 ---
 
-### SLIDE 07 · CIERRE
+### SLIDE 08 · CIERRE
 * **Lo que se ve:** Logotipo LOSSIA · HORSE. Subtítulo: *"Excelencia Operativa en la Línea 5"*. Preguntas.
 * **Qué decir:**
   > *"En conclusión: LOSSIA aporta rigor analítico, desvela los cuellos de botella invisibles, cuantifica el retorno de cada intervención y anticipa el riesgo diario.*  

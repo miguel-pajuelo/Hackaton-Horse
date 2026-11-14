@@ -21,7 +21,7 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
+def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Visual.pptx"):
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
@@ -40,6 +40,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
     SECCIONES = [
         ("eda", "EDA"),
         ("dashboard", "DASHBOARD"),
+        ("propagacion", "PROPAGACIÓN"),
         ("simulador", "SIMULADOR"),
         ("fallos", "INFORME DE FALLOS"),
         ("futuro", "MEJORAS FUTURAS")
@@ -56,11 +57,11 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
         # 1. Pestañas de navegación superiores (idénticas a la foto)
         tab_start_x = Inches(0.8)
         tab_y = Inches(0.28)
-        tab_spacing = Inches(2.2)
+        tab_spacing = Inches(1.78)
 
         for i, (slug, label) in enumerate(SECCIONES):
             is_active = (slug == active_slug)
-            tb_tab = slide.shapes.add_textbox(tab_start_x + i * tab_spacing, tab_y, Inches(2.1), Inches(0.35))
+            tb_tab = slide.shapes.add_textbox(tab_start_x + i * tab_spacing, tab_y, Inches(1.72), Inches(0.35))
             tf_tab = tb_tab.text_frame
             tf_tab.margin_left = tf_tab.margin_top = tf_tab.margin_right = tf_tab.margin_bottom = 0
             p = tf_tab.paragraphs[0]
@@ -162,11 +163,11 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
     p_desc.space_before = Pt(16)
 
     # Pills inferiores de secciones
-    pills = ["01 EDA", "02 DASHBOARD", "03 SIMULADOR", "04 INFORME DE FALLOS", "05 MEJORAS FUTURAS"]
-    pill_w = Inches(1.7)
-    pill_start_x = Inches(2.2)
+    pills = ["01 EDA", "02 DASHBOARD", "03 PROPAGACIÓN", "04 SIMULADOR", "05 FALLOS", "06 FUTURO"]
+    pill_w = Inches(1.75)
+    pill_start_x = Inches(0.9)
     for i, pill in enumerate(pills):
-        p_shape = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pill_start_x + i * Inches(1.8), Inches(5.1), pill_w, Inches(0.42))
+        p_shape = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pill_start_x + i * Inches(1.9), Inches(5.1), pill_w, Inches(0.42))
         p_shape.fill.solid()
         p_shape.fill.fore_color.rgb = C_PILL_BG
         p_shape.line.color.rgb = C_BORDER
@@ -237,11 +238,52 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
         s3.shapes.add_picture(str(img_dash), Inches(0.8), Inches(1.45), width=Inches(11.73))
 
     # =========================================================================
-    # SLIDE 4: SECCIÓN 03 · SIMULADOR
+    # SLIDE 4: SECCIÓN 03 · PROPAGACIÓN DE CUELLOS DE BOTELLA
+    # =========================================================================
+    s_prop = prs.slides.add_slide(blank_layout)
+    set_slide_background(s_prop)
+    add_navigation_header(s_prop, active_slug="propagacion", title_text="03 · PROPAGACIÓN — El Efecto Dominó en Cadena (SAT vs DES)")
+
+    # Tarjetas superiores con KPIs de propagación
+    kpis_prop = [
+        ("ST_0260", "Puesto #20 · Cuello crítico", C_NAVY),
+        ("0.68 h", "Parada propia (TAP)", C_TERRACOTTA),
+        ("10.92 h", "Inducidas a vecinas", C_NAVY),
+        ("x 16.1", "Multiplicador de asfixia", C_TERRACOTTA),
+    ]
+    for i, (val, label, col) in enumerate(kpis_prop):
+        card = s_prop.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8) + i * Inches(2.95), Inches(1.42), card_w, Inches(1.0))
+        card.fill.solid()
+        card.fill.fore_color.rgb = C_CARD_BG
+        card.line.color.rgb = C_BORDER
+        card.line.width = Pt(1.2)
+        tf = card.text_frame
+        tf.margin_top = Inches(0.12)
+        p1 = tf.paragraphs[0]
+        p1.text = val
+        p1.font.name = "Georgia"
+        p1.font.size = Pt(24)
+        p1.font.bold = True
+        p1.font.color.rgb = col
+        p1.alignment = PP_ALIGN.CENTER
+        p2 = tf.add_paragraph()
+        p2.text = label
+        p2.font.name = "Georgia"
+        p2.font.size = Pt(11)
+        p2.font.color.rgb = C_MUTED
+        p2.alignment = PP_ALIGN.CENTER
+
+    # Gráfico de propagación incrustado
+    img_prop = Path("grafico_propagacion_lossia.png")
+    if img_prop.exists():
+        s_prop.shapes.add_picture(str(img_prop), Inches(0.8), Inches(2.55), width=Inches(11.7))
+
+    # =========================================================================
+    # SLIDE 5: SECCIÓN 04 · SIMULADOR
     # =========================================================================
     s4 = prs.slides.add_slide(blank_layout)
     set_slide_background(s4)
-    add_navigation_header(s4, active_slug="simulador", title_text="03 · SIMULADOR — Capacidad What-If y Retorno de Inversión")
+    add_navigation_header(s4, active_slug="simulador", title_text="04 · SIMULADOR — Capacidad What-If y Retorno de Inversión")
 
     # Tarjetas superiores con KPIs de simulación
     kpis_sim = [
@@ -278,11 +320,11 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
         s4.shapes.add_picture(str(img_sim), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
     # =========================================================================
-    # SLIDE 5: SECCIÓN 04 · INFORME DE POSIBLES FALLOS
+    # SLIDE 6: SECCIÓN 05 · INFORME DE POSIBLES FALLOS
     # =========================================================================
     s5 = prs.slides.add_slide(blank_layout)
     set_slide_background(s5)
-    add_navigation_header(s5, active_slug="fallos", title_text="04 · INFORME DE POSIBLES FALLOS — Predicción Diaria por Desgaste (Weibull)")
+    add_navigation_header(s5, active_slug="fallos", title_text="05 · INFORME DE POSIBLES FALLOS — Predicción Diaria por Desgaste (Weibull)")
 
     # Tarjetas superiores de estado diario
     kpis_fallos = [
@@ -319,11 +361,11 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
         s5.shapes.add_picture(str(img_pred), Inches(0.8), Inches(2.55), width=Inches(11.7))
 
     # =========================================================================
-    # SLIDE 6: SECCIÓN 05 · MEJORAS FUTURAS
+    # SLIDE 7: SECCIÓN 06 · MEJORAS FUTURAS
     # =========================================================================
     s6 = prs.slides.add_slide(blank_layout)
     set_slide_background(s6)
-    add_navigation_header(s6, active_slug="futuro", title_text="05 · MEJORAS FUTURAS — Hoja de Ruta para HORSE")
+    add_navigation_header(s6, active_slug="futuro", title_text="06 · MEJORAS FUTURAS — Hoja de Ruta para HORSE")
 
     # Gráfico de mejoras futuras en formato cuadrícula visual
     img_futuro = Path("grafico_futuro_lossia.png")
@@ -364,7 +406,7 @@ def build_presentation(output_file="Presentacion_LOSSIA_HORSE_Dashboard.pptx"):
     p_e1.space_before = Pt(12)
 
     p_e2 = tf_e.add_paragraph()
-    p_e2.text = "EDA  ·  DASHBOARD  ·  SIMULADOR  ·  PREDICCIÓN  ·  FUTURO"
+    p_e2.text = "EDA  ·  DASHBOARD  ·  PROPAGACIÓN  ·  SIMULADOR  ·  PREDICCIÓN  ·  FUTURO"
     p_e2.font.name = "Georgia"
     p_e2.font.size = Pt(14)
     p_e2.font.bold = True
