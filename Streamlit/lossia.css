@@ -834,3 +834,4 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .st-key-descarga button { width: auto !important; padding: 8px 18px !important; gap: 8px; }
 .st-key-descarga button [data-testid="stMarkdownContainer"] { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; clip: auto !important; clip-path: none !important; white-space: nowrap; margin: 0 !important; }
 .st-key-descarga button { height: auto !important; }
+.insight-nota { margin: 0; color: var(--lossia-muted); font-size: .82rem; line-height: 1.35; border-top: 1px solid var(--lossia-edge-soft); padding-top: 8px; }

@@ -56,7 +56,8 @@ ACCESOS = {
     "paradas": "Parada propia vs. inducida",
 }
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
-            "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "Categoria"]
+            "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "TAP_TAI",
+            "Dias_principal", "Categoria"]
 
 st.set_page_config(page_title="LOSSIA", layout="wide")
 st.html(APP / "lossia.css")
@@ -134,12 +135,22 @@ def construir_vista(resultado: LI.Resultado) -> pd.DataFrame:
                                     "es_cuello", "es_relevante", "severidad", "horas_inducidas",
                                     "rango_det"]]
     k = resultado.kpis.merge(extra, on="Etapa", how="left")
+    # Criterio de HORSE (TAP/TAI > 1) y días como penalizante principal, del método de flechas
+    det = resultado.determinista
+    nuevas = [c for c in ("cociente_tap_tai", "causa_propia", "dias_principal") if c in det.columns]
+    if nuevas:
+        k = k.merge(det[["Etapa", *nuevas]].drop_duplicates("Etapa"), on="Etapa", how="left")
+    for c, defecto in (("cociente_tap_tai", np.nan), ("causa_propia", False), ("dias_principal", np.nan)):
+        if c not in k.columns:
+            k[c] = defecto
     k = k.rename(columns={
         "Etapa": "Operacion", "Orden_etapa": "Orden_OP", "Tcy_cmin": "Tcy",
         "horas_inducidas": "Induce_vecinos", "severidad": "Severidad",
         "es_cuello": "Es_cuello", "es_relevante": "Es_relevante", "rango_det": "Rango_det",
-        "categoria": "Categoria", "motivo": "Motivo",
+        "categoria": "Categoria", "motivo": "Motivo", "cociente_tap_tai": "TAP_TAI",
+        "causa_propia": "Causa_propia", "dias_principal": "Dias_principal",
     })
+    k["TAP_TAI"] = k["TAP_TAI"].replace([np.inf, -np.inf], np.nan)
     k["Es_principal"] = k["Rango_det"] == 1
     k["Dp"] = k["Dp"] * 100
     for c in ("TAP", "DES", "SAT", "TAI"):
@@ -486,7 +497,7 @@ def kpis_cabecera(k: pd.DataFrame):
     )
 
 
-def insight(simbolo, titulo, *, op=None, metricas=(), ilustracion="", mensaje=""):
+def insight(simbolo, titulo, *, op=None, metricas=(), ilustracion="", mensaje="", nota=""):
     with st.container(key=f"insight_{simbolo}"):
         st.html(f'<h3 class="insight-heading">{icono(simbolo)}{escape(titulo)}</h3>')
         if op is not None:
@@ -499,6 +510,8 @@ def insight(simbolo, titulo, *, op=None, metricas=(), ilustracion="", mensaje=""
             )
             dibujo = f'<div class="insight-ilustracion">{ilustracion}</div>' if ilustracion else ""
             st.html(f'<div class="insight-cifras"><div class="insight-metricas">{cifras}</div>{dibujo}</div>')
+            if nota:
+                st.html(f'<p class="insight-nota">{escape(nota)}</p>')
         else:
             st.html(f'<p class="insight-text">{escape(mensaje)}</p>')
 
@@ -523,12 +536,22 @@ def insights(k: pd.DataFrame, resultado: LI.Resultado):
                     '<circle cx="106" cy="30" r="9" fill="#B7AC90"/>',
                     "0 0 120 60",
                 )
-                insight("subida", "Cuello de botella (método de flechas)", op=fila.Operacion,
+                cociente = f"{fila.TAP_TAI:.1f}" if pd.notna(fila.TAP_TAI) else "∞"
+                n_dias = int(fila.n_dias) if "n_dias" in fila and pd.notna(fila.n_dias) else len(resultado.dias)
+                dias_txt = (f"Penalizante principal {int(fila.Dias_principal)} de {n_dias} días · "
+                            if pd.notna(fila.Dias_principal) and n_dias > 1 else "")
+                insight("subida", "Máquina más penalizante", op=fila.Operacion,
                         metricas=((f"{fila.Severidad * 100:.0f} %", "Severidad"),
-                                  (f"{fila.Induce_vecinos:.1f} h", "Inducidas a sus vecinas")),
-                        ilustracion=red)
+                                  (cociente, "TAP / TAI")),
+                        ilustracion=red,
+                        nota=f"{dias_txt}se para más por sí misma que por sus vecinas "
+                             f"({fila.Induce_vecinos:.1f} h inducidas a la línea).")
             else:
-                insight("subida", "Cuello de botella", mensaje="Sin un cuello relevante en los días seleccionados.")
+                cuellos = k.loc[k.Es_cuello.fillna(False)]
+                insight("subida", "Máquina más penalizante",
+                        mensaje=("Hay cuellos de botella, pero ninguno cumple TAP/TAI > 1: sus paradas "
+                                 "vienen de su entorno, no de la propia máquina."
+                                 if not cuellos.empty else "Sin un cuello relevante en los días seleccionados."))
         with c2:
             mant = resultado.mantenimiento
             top_mant = mant.loc[mant.rango_mant == 1] if not mant.empty else mant
@@ -671,11 +694,18 @@ def detalle(motor, k, resultado, fechas):
          f"{fila.Tcy - TCY_MAX:+.1f} cmin" if pd.notna(fila.Tcy) else None),
         ("Fpm", f"{fila.Fpm:.1f}" if pd.notna(fila.Fpm) else "—", None),
         ("Puesto · método de flechas", str(int(posicion)) if posicion is not None else "fuera de cadena", None),
+        ("TAP / TAI", (f"{fila.TAP_TAI:.2f}" if pd.notna(fila.TAP_TAI) else "—"),
+         ("causa propia" if fila.Causa_propia is True else "víctima del entorno") if pd.notna(fila.TAP_TAI) else None),
     ]
+    n_dias = int(fila.n_dias) if "n_dias" in fila and pd.notna(fila.n_dias) else len(fechas)
+    if pd.notna(fila.Dias_principal) and n_dias > 1:
+        medidas.append(("Días como principal", f"{int(fila.Dias_principal)} / {n_dias}", None))
     with st.container(key="metricas_detalle", horizontal=True, gap="small"):
         for etiqueta, valor, delta in medidas:
             st.metric(etiqueta, valor, delta, border=True,
-                      delta_color="inverse" if etiqueta == "Tiempo de ciclo" else "normal")
+                      delta_color=("inverse" if etiqueta == "Tiempo de ciclo"
+                                   else "off" if etiqueta == "TAP / TAI" else "normal"),
+                      delta_arrow="off" if etiqueta == "TAP / TAI" else "auto")
     if pd.notna(fila.Motivo) and fila.Motivo:
         st.info(f"**Motivo de prioridad:** {fila.Motivo}")
 
