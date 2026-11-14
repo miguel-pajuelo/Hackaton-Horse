@@ -698,22 +698,22 @@ def detalle(motor, k, resultado, fechas):
                    "(tiempos promediados, piezas y paradas sumadas).")
     posicion = fila.Rango_det if pd.notna(fila.Rango_det) else None
     medidas = [
-        ("Orden en línea", f"OP {int(fila.Orden_OP)}", None),
+        ("Orden", f"OP {int(fila.Orden_OP)}", None),
         ("Disponibilidad", f"{fila.Dp:.1f} %" if pd.notna(fila.Dp) else "—",
          f"{fila.Dp - DP_MIN:+.1f} pp" if pd.notna(fila.Dp) else None),
         ("Tiempo de ciclo", f"{fila.Tcy:.1f} cmin" if pd.notna(fila.Tcy) else "—",
          f"{fila.Tcy - TCY_MAX:+.1f} cmin" if pd.notna(fila.Tcy) else None),
         ("Fpm", f"{fila.Fpm:.1f}" if pd.notna(fila.Fpm) else "—", None),
-        ("Puesto · método de flechas", str(int(posicion)) if posicion is not None else "fuera de cadena", None),
+        ("Puesto flechas", str(int(posicion)) if posicion is not None else "fuera de cadena", None),
         ("TAP / TAI", (f"{fila.TAP_TAI:.2f}" if pd.notna(fila.TAP_TAI) else "—"),
          ("causa propia" if fila.Causa_propia is True else "víctima del entorno") if pd.notna(fila.TAP_TAI) else None),
     ]
     n_dias = int(fila.n_dias) if "n_dias" in fila and pd.notna(fila.n_dias) else len(fechas)
     if pd.notna(fila.Dias_principal) and n_dias > 1:
-        medidas.append(("Días como principal", f"{int(fila.Dias_principal)} / {n_dias}", None))
+        medidas.append(("Días principal", f"{int(fila.Dias_principal)} / {n_dias}", None))
     with st.container(key="metricas_detalle", horizontal=True, gap="small"):
         for etiqueta, valor, delta in medidas:
-            st.metric(etiqueta, valor, delta, border=True,
+            st.metric(etiqueta, valor, delta,
                       delta_color=("inverse" if etiqueta == "Tiempo de ciclo"
                                    else "off" if etiqueta == "TAP / TAI" else "normal"),
                       delta_arrow="off" if etiqueta == "TAP / TAI" else "auto")
@@ -982,10 +982,10 @@ def simulacion():
     with st.spinner("Simulando la jornada…"):
         html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, int(buffer))
     with st.container(key="sim_kpis", horizontal=True, gap="medium"):
-        st.metric("Producción real media", f"{real:,.0f}".replace(",", "."), border=True)
-        st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."), border=True)
+        st.metric("Producción real media", f"{real:,.0f}".replace(",", "."))
+        st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."))
         st.metric(f"Simulada · mejorando {mejorar}", f"{mejora:,}".replace(",", "."),
-                  delta=f"{mejora - base:+d} motores/día", border=True)
+                  delta=f"{mejora - base:+d} motores/día")
     components.html(html, height=1080, scrolling=True)
 
     ranking = REPO / "simulador" / "salidas" / "ranking_simulado.csv"
@@ -1082,9 +1082,9 @@ elif k.empty:
     if vista == "inicio":
         calidad(datos_locales)
 elif vista == "inicio":
+    calidad(datos_locales)
     insights(k, resultado)
     kpis_cabecera(k)
-    calidad(datos_locales)
 elif vista == "detalle":
     detalle(motor, k, resultado, dias_sel)
 elif vista == "datos":
