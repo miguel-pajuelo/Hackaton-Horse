@@ -1,94 +1,189 @@
-# 🏭 LOSSIA · Plataforma de Inteligencia Operativa y Mantenimiento Prescriptivo
-### **Hackathon Proyecto LOSSIA · HORSE Valladolid (Línea 5 de Montaje de Motores)**
-*Organizado por HORSE & ICAI · Noviembre 2026*
+# LOSSIA · Máquinas penalizantes en la Línea 5 de HORSE Valladolid
 
----
+Proyecto del Hackathon LOSSIA (HORSE e ICAI, noviembre de 2026). El objetivo es identificar qué
+máquinas de la Línea 5 de montaje de motores penalizan de verdad la producción, explicar por qué y
+estimar qué se ganaría actuando sobre ellas.
 
-## 🎯 Objetivo del Proyecto
-Proporcionar a los responsables de producción y mantenimiento de **HORSE** una solución tecnológica integral que elimine la subjetividad en planta:
-1. **Unificar el criterio analítico de paradas** diferenciando con rigor físico la **parada propia ($TAP$)** de la **parada inducida ($TAI = DES + SAT$)**, respondiendo objetivamente a por qué una máquina que se para poco puede ser la más penalizante.
-2. **Filtrar anomalías de telemetría** (ej. rebote de fotocélula en `ST2235` con 22.022 paradas/día) para evitar intervenciones mecánicas innecesarias.
-3. **Simular escenarios What-If** para evaluar el retorno de inversión (ROI) al intervenir cuellos de botella o insertar buffers intermedios con el gemelo digital de `simulador/` (p. ej. +29 motores/día eliminando las paradas de `PM_2250`).
-4. **Predecir averías imprevistas** basándose en el **tiempo acumulado de marcha continua sin fallos ($t_{\text{sin\_fallo}}$ vs $MTBF$)** mediante un modelo de desgaste de Weibull ($\beta = 1.85$).
-5. **Cerrar el ciclo agéntico (Agentic Closed-Loop)** mediante un copiloto con *Tool Calling* determinista (sin alucinaciones) capaz de generar borradores de órdenes de trabajo para SAP PM / GMAO.
+El proyecto se compone de cuatro partes que comparten los mismos datos y el mismo motor de cálculo:
 
----
+1. **Limpieza de datos** de los registros diarios de la línea.
+2. **Motor de análisis** (`lossia/`): indicadores, método de flechas y prioridades.
+3. **Cuadro de mandos web** (`Streamlit/`): resumen, visualizaciones, detalle por máquina,
+   simulación de la línea y el asistente KAIROS.
+4. **Simulador de la línea** (`simulador/`): réplica de eventos discretos para evaluar mejoras.
 
-## 📂 Estructura del Repositorio
+## Datos
 
-El proyecto se encuentra organizado en módulos desacoplados y reproducibles:
+- Línea 5 de montaje, 91 operaciones, del 29/09/2026 al 23/10/2026 (16 días con datos).
+- Por cada operación y día: tiempo funcionando (TBF), parada propia (TAP), desabastecimiento (DES),
+  saturación (SAT), número de paradas (NAP) y piezas producidas (NPR).
+- Originales en `Datos/`; datos depurados, alertas y registro de la limpieza en `Datos_limpios/`.
+
+## Metodología
+
+### Indicadores
+
+| Indicador | Definición | Objetivo |
+|---|---|---|
+| Dp (disponibilidad propia) | TBF / (TBF + TAP) | ≥ 90 % |
+| Tcy (tiempo de ciclo) | TBF / NPR, en centiminutos por pieza | ≤ 80 cmin |
+| Fpm (frecuencia de paro) | NAP / NPR × 1000 | — |
+| TAI (parada inducida) | DES + SAT: tiempo parada por culpa de las vecinas | — |
+| TAP / TAI | Parada propia frente a parada inducida | > 1 = el problema es de la propia máquina |
+
+Las operaciones en paralelo se fusionan en una sola etapa. Los umbrales están en `lossia/config.py`.
+
+### Cuellos de botella y máquinas penalizantes
+
+- **Método de flechas** (`lossia/determinista.py`): compara cuánto se bloquea cada etapa con cuánto
+  se queda sin piezas. Una etapa es cuello de botella cuando las flechas de sus vecinas convergen en
+  ella; la **severidad** mide cuánto frena el flujo.
+- **Criterio de HORSE**: un cuello es **penalizante** si su severidad supera el 5 % y su cociente
+  TAP/TAI es mayor que 1. Si no, es una víctima de su entorno.
+- En la web, el ranking de cuellos se ordena por **severidad × TAP/TAI**.
+
+### Simulador
+
+Réplica de eventos discretos de la línea (`simulador/simulador_linea.py`):
+
+- Cada etapa trabaja a su tiempo de ciclo y sufre paradas con la frecuencia y la duración medias
+  reales; las paradas se generan al azar con esas medias.
+- Entre etapas hay buffers de capacidad limitada. Su tamaño no viene en los datos y se ha calibrado
+  en 8 piezas para reproducir la producción real.
+- Las cifras de producción son la media de 5 jornadas simuladas, con los mismos números aleatorios
+  en todos los escenarios, de modo que las diferencias se deben solo a la mejora evaluada.
+- La producción simulada (1.521 motores/día) queda a menos de un 1 % de la real (1.530).
+
+El simulador no reproduce un día concreto: sirve para **comparar escenarios** (qué ocurre si se
+reducen las paradas de una o varias etapas, o si cambia el tamaño de un buffer).
+
+## Resultados principales
+
+- **PM_2020** es la máquina más penalizante: cuello de botella con severidad del 18 % y TAP/TAI de
+  2,4. Fue la penalizante principal 8 de los 16 días.
+- **ST_0261** es la segunda penalizante (TAP/TAI 1,3).
+- **ST_0260** es el cuello con mayor severidad (39 %), pero con TAP/TAI de 0,38: sus paradas vienen
+  sobre todo de sus vecinas, así que actuar sobre ella no resolvería el problema.
+- **ST_2235** registra unas 22.000 paradas al día y un 20 % de disponibilidad, pero su contador de
+  piezas no es fiable ningún día y la línea produce con normalidad. Apunta a un fallo del sensor,
+  no de la máquina.
+- **Simulación**: eliminar las paradas de **PM_2250** es la mejora con más impacto (+29 motores/día),
+  porque sus paradas son largas (unos 8 minutos de media) y vacían los buffers. Eliminar las paradas
+  de los cuellos de botella del método de flechas apenas cambia la producción: sus paradas son cortas
+  y los buffers las absorben.
+
+Conclusión: el método de flechas sirve para **diagnosticar** (qué máquina frena el flujo y si la
+culpa es suya o de su entorno) y el simulador para **decidir** (qué arreglar primero y cuánto se gana).
+
+## Cuadro de mandos web
+
+Pestañas de la cabecera:
+
+| Pestaña | Contenido |
+|---|---|
+| Resumen | Alertas de calidad de datos, insights principales y cifras de la línea |
+| Visualizaciones | Reparto del tiempo, top penalizantes, evolución de objetivos y parada propia frente a inducida |
+| Simulación | Animación de una jornada, mejora de una o varias etapas y tamaño de buffer por tramo |
+| Máquinas | Detalle de cada etapa: indicadores, categoría, motivo de prioridad y evolución diaria |
+| Datos | Tabla completa con descarga en CSV |
+
+La barra lateral filtra por centro, línea, periodo, días de la semana, tipo de operación, tramo y
+máquinas. **KAIROS**, el botón flotante de abajo a la derecha, responde preguntas sobre la línea con
+un modelo de lenguaje que consulta las herramientas de `chat/`: todas las cifras salen del motor
+oficial y cada respuesta indica si sus cifras están verificadas.
+
+## Estructura del repositorio
 
 ```text
-├── Streamlit/             # Cuadro de mandos web oficial (interfaz corporativa HORSE)
-│   ├── app.py             # Aplicación principal Streamlit
-│   ├── lossia.css         # Estilo visual editorial y retro-crema
-│   └── graficos.py        # Visualizaciones de criticidad, reparto y objetivos
-│
-├── presentacion/          # Materiales de defensa y Pitch ante el Jurado
-│   ├── Presentacion_LOSSIA_HORSE_Visual.pptx    # Presentación visual 16:9 (sin texto, diseño dashboard)
-│   ├── GUION_PRESENTACION_LOSSIA.md             # Guion palabra por palabra para el pitch (5 min)
-│   ├── construir_presentacion_visual_lossia.py  # Generador programático de las diapositivas
-│   └── *.png                                    # Gráficos vectoriales de apoyo (SAT/DES, EDA, Simulador)
-│
-├── analisis_avanzado/     # Suite de Data Science, Fiabilidad y Módulos Autónomos
-│   ├── 02_analisis_penalizantes.ipynb           # Análisis de máquinas penalizantes e IPL
-│   ├── 04_analisis_cuellos_botella_generico.ipynb # Módulo agnóstico aplicable a cualquier fábrica
-│   ├── 05_prediccion_fallos_diaria.ipynb        # Predictor diario por desgaste temporal (Weibull)
-│   ├── predictor_fallos_diario.py               # Motor CLI de predicción y prescripción diaria
-│   ├── analisis_cuellos_botella.py              # Clase universal BottleneckAnalyzer
-│
-├── chat/                  # Copiloto Agéntico "Pregunta a la Línea"
-│   ├── herramientas.py    # Catálogo de herramientas deterministas (Zero-Hallucination)
-│   ├── conexion.py        # Cliente de inferencia local / remoto
-│   ├── kaggle_remoto.py   # Despliegue con Mistral Small 24B Q8 on-premise/Kaggle
-│   └── README.md          # Documentación del agente y guía de conexión
-│
-├── simulador/             # Gemelo Digital y Simulación de Eventos Discretos
-│   ├── simulador_linea.py # Cadena en serie con calibración de buffers por tramo
-│   └── animacion_linea.py # Visualización dinámica del flujo de piezas
-│
-├── lossia/                # Motor de cálculo oficial determinista
-│   ├── interfaz.py        # Fachada de carga y recálculo
-│   ├── determinista.py    # Método de flechas y cálculo de severidad
-│   ├── prioridades.py     # Criterio de ordenación de máquinas penalizantes
-│   └── config.py          # Umbrales contractuales (Dp >= 90%, Tcy <= 80 cmin)
-│
-├── Datos_limpios/         # Telemetría depurada de la Línea 5 (Valladolid)
-├── Resultados/            # KPIs y clasificaciones persistidas
-└── tests/                 # Suite de pruebas unitarias y de equivalencia
+Streamlit/            Cuadro de mandos web
+  app.py              Aplicación principal
+  graficos.py         Gráficos de las visualizaciones
+  lossia.css          Estilos
+  requirements.txt    Dependencias
+lossia/               Motor de análisis oficial
+  datos.py            Carga y agregación por etapa
+  kpis.py             Dp, Tcy, Fpm y paradas
+  determinista.py     Método de flechas, severidad y criterio TAP/TAI
+  prioridades.py      Ranking de prioridades y de mantenimiento
+  interfaz.py         Punto de entrada para la web y el chat
+  config.py           Umbrales y rutas
+simulador/            Simulador de eventos discretos y animación de la línea
+chat/                 Herramientas y conexión del asistente KAIROS
+analisis_avanzado/    Análisis complementarios: penalizantes, módulo genérico de cuellos de
+                      botella y predicción diaria de averías
+presentacion/         Presentaciones y guion para el jurado
+Datos/                Datos originales del reto
+Datos_limpios/        Datos depurados, alertas y registro de la limpieza
+Resultados/           Indicadores y rankings calculados por analisis.py
+tests/                Pruebas del motor y del chat
+Informacion_RETO/     Presentación oficial del reto
+docs/                 Documentación de apoyo (referencia de estilo de la web)
+limpieza.py           Limpieza de los datos originales
+analisis.py           Cálculo de todos los resultados
+01_limpieza.ipynb     Limpieza paso a paso
+02_eda.ipynb          Análisis exploratorio
+03_llm_kaggle.ipynb   Servidor del modelo de lenguaje en Kaggle
+04_demo_remota.ipynb  Demo remota del asistente
 ```
 
----
+## Instalación y uso
 
-## 🚀 Puesta en Marcha Rápida
+Requisitos: Python 3.10 o superior.
 
-### 1. Cuadro de Mandos Web (Streamlit)
 ```bash
-streamlit run Streamlit/app.py
+pip install -r Streamlit/requirements.txt
 ```
 
-### 2. Predictor Diario de Averías (CLI)
-Para emitir el informe ejecutivo de riesgo y prescripciones antes de arrancar el turno:
+Orden de ejecución desde la raíz del repositorio:
+
 ```bash
-python analisis_avanzado/predictor_fallos_diario.py --dia S43-D4
+python limpieza.py                     # 1. Datos/ -> Datos_limpios/
+python analisis.py                     # 2. Datos_limpios/ -> Resultados/
+streamlit run Streamlit/app.py         # 3. Cuadro de mandos web
 ```
 
-### 3. Simulador de Capacidad y Buffers
+Los pasos 1 y 2 solo son necesarios si cambian los datos: `Datos_limpios/` y `Resultados/` ya están
+en el repositorio.
+
+Otros comandos:
+
 ```bash
-python -m lossia.simulador ST_2390=30
-python simulador/simulador_linea.py --buffer 10
+python simulador/simulador_linea.py --buffer 8          # ranking de motores/día ganados por etapa
+python simulador/animacion_linea.py --mejorar PM_2250   # animación HTML de una jornada
+python analisis_avanzado/predictor_fallos_diario.py --dia S43-D4   # informe de riesgo de un día
+python -m pytest tests                                  # pruebas
 ```
 
-### 4. Consultar la Presentación y el Guion
-* La presentación visual para el jurado se encuentra en:  
-  [`presentacion/Presentacion_LOSSIA_HORSE_Visual.pptx`](presentacion/Presentacion_LOSSIA_HORSE_Visual.pptx)
-* El guion estructurado con notas de orador y defensa de Q&A se encuentra en:  
-  [`presentacion/GUION_PRESENTACION_LOSSIA.md`](presentacion/GUION_PRESENTACION_LOSSIA.md)
+### Conexión del asistente KAIROS
 
----
+El asistente necesita un servidor del modelo de lenguaje compatible con la API de OpenAI (por
+ejemplo, el que levanta `03_llm_kaggle.ipynb`). La conexión se configura en
+`.streamlit/secrets.toml`:
 
-## 🏆 Fortalezas Diferenciales ante el Jurado
-* **Zero Hallucination:** El agente LLM razona mediante *Function Calling*; todas las cifras provienen del motor determinista oficial `lossia`.
-* **Física de Fiabilidad:** Supervivencia modelada con Weibull ($\beta = 1.85$) en función del tiempo acumulado sin avería ($t_{\text{sin\_fallo}}$ vs $MTBF$).
-* **Closed-Loop Action:** De la detección y el diagnóstico causal a la simulación What-If y la generación de órdenes de trabajo para SAP PM / GMAO.
-* **Escalabilidad Global:** Algoritmos agnósticos preparados para desplegarse en cualquier centro de HORSE (Sevilla, Curitiba, Mioveni o Bursa).
+```toml
+LLM_BASE_URL = "https://<servidor>/v1"
+LLM_MODEL    = "<nombre del modelo>"
+LLM_API_KEY  = "<clave>"
+```
+
+Sin conexión, el resto del cuadro de mandos funciona con normalidad y KAIROS lo indica. Más detalle
+en `chat/README.md` y `chat/REMOTO.md`.
+
+## Limitaciones
+
+- 16 días de datos: los resultados son robustos para el periodo, pero no permiten estudiar
+  tendencias largas.
+- Tres operaciones (ST_0295, ST_2235 y ST_3300) tienen el contador de piezas no fiable, así que no
+  tienen tiempo de ciclo ni frecuencia de paro.
+- El simulador supone paradas independientes con duración exponencial y tiempo de ciclo constante;
+  el tamaño de los buffers está calibrado, no medido, y las operaciones en paralelo se tratan como
+  una sola etapa.
+- La reproducción de las esperas por etapa (DES y SAT) es moderada, aunque la producción total
+  coincide con la real.
+
+## Equipo
+
+- **Alonso**: limpieza de datos y motor de análisis.
+- **Gonzalo**: cuadro de mandos web y simulador.
+- **Miguel**: asistente KAIROS e integración.
+- **Jorge**: análisis avanzado y presentación.
