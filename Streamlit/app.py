@@ -329,7 +329,7 @@ def calendario_alerta(alerta: dict, dias: list, datos: pd.DataFrame):
     dias_semana = sorted(set(range(1, 6)) | {dia for _, dia in observados | afectados})
     por_dia = (alerta.get("detalle", {}).get("datos") or {}).get("por_dia") or []
     detalles = {periodo(item.get("dia")): item for item in por_dia if isinstance(item, dict)}
-    columnas = f"grid-template-columns: auto repeat({len(dias_semana)}, minmax(42px, 1fr))"
+    columnas = f"grid-template-columns: auto repeat({len(dias_semana)}, minmax(28px, 1fr))"
     celdas = ['<span></span>'] + [f'<span class="cal-dia">D{dia}</span>' for dia in dias_semana]
     for semana in semanas:
         celdas.append(f'<strong class="cal-semana">S{semana:02d}</strong>')
@@ -380,31 +380,36 @@ def detalle_calidad(alerta: dict, registro: list | None = None):
         return (f'<div class="calidad-bloque {clase}"><strong>{escape(titulo)}</strong>'
                 f'<p>{escape(str(texto))}</p></div>')
 
-    resumen = []
-    if impacto:
-        resumen.append(celda("Impacto en el análisis", impacto))
-    if causa:
-        resumen.append(celda("Causa probable", causa))
-    if resumen:
-        st.html('<div class="calidad-resumen">' + "".join(resumen) + "</div>")
+    def breve(texto):
+        texto = str(texto).strip()
+        if "sus datos no son fiables" in texto.lower():
+            return "Datos no fiables"
+        primera = re.split(r"(?<=[.!?])\s+|;", texto, maxsplit=1)[0]
+        if len(primera) > 100:
+            primera = primera[:97].rsplit(" ", 1)[0].rstrip(" ,:;") + "…"
+        return primera
 
-    diagnostico = []
-    if evidencia:
-        diagnostico.append(celda("Qué ocurre", evidencia))
-    if impacto:
-        diagnostico.append(celda("Impacto", impacto))
-    if recomendacion:
-        diagnostico.append(celda("Acción recomendada", recomendacion, "calidad-accion"))
-    if diagnostico:
-        st.html('<div class="calidad-diagnostico">' + "".join(diagnostico) + "</div>")
-    if dias:
-        calendario_alerta(alerta, dias, fechas_alertas(str(DIR_LIMPIOS / "datos_limpios.csv"),
-                                                     LI.firma_fuentes(DIR_LIMPIOS)))
+    bloques = [("Impacto", impacto, ""), ("Causa probable", causa, ""),
+               ("Qué ocurre", evidencia, ""), ("Acción recomendada", recomendacion, "calidad-accion")]
+    with st.container(key=f"diagnostico_layout_{alerta.get('id', 'alerta')}"):
+        izquierda, derecha = st.columns([1.25, 1], gap="medium")
+        with izquierda:
+            contenido = [celda(titulo, breve(texto), clase) for titulo, texto, clase in bloques if texto]
+            if contenido:
+                st.html('<div class="calidad-diagnostico">' + "".join(contenido) + '</div>')
+        with derecha:
+            if dias:
+                calendario_alerta(alerta, dias, fechas_alertas(str(DIR_LIMPIOS / "datos_limpios.csv"),
+                                                             LI.firma_fuentes(DIR_LIMPIOS)))
 
     alternativas = detalle.get("otras_causas_posibles") or []
     datos = detalle.get("datos") or {}
-    if alternativas or datos or registro:
+    if alternativas or datos or registro or any((evidencia, impacto, causa, recomendacion)):
         with st.expander("Ver detalle técnico"):
+            for titulo, texto in (("Evidencia", evidencia), ("Impacto en el análisis", impacto),
+                                  ("Causa probable", causa), ("Acción recomendada", recomendacion)):
+                if texto:
+                    st.markdown(f"**{titulo}:** {texto}")
             if alternativas:
                 st.markdown("**Otras causas posibles**")
                 for alternativa in alternativas:
@@ -570,7 +575,7 @@ def calidad(datos_locales: bool):
                 if datos_locales and ALERTAS.exists() else "Sin informe asociado")
     if lista:
         etiqueta = f":{'red' if errores else 'orange'}-background[{etiqueta}]"
-    panel = st.expander(f"**Calidad de datos**　{etiqueta}", icon=":material/database:",
+    panel = st.expander(f"**Alertas del sistema**　{etiqueta}", icon=":material/warning:",
                         key="calidad", on_change="rerun")
     if not panel.open:
         return
@@ -578,8 +583,6 @@ def calidad(datos_locales: bool):
         if not lista:
             st.caption("No hay alertas de limpieza asociadas a la fuente activa.")
             return
-        st.html(f'<p class="alerta-resumen">{len(lista)} incidencias para la línea completa. '
-                'El recuento abarca todos los periodos, tramos y máquinas del informe.</p>')
         c1, c2 = st.columns([1.3, 2])
         with c1:
             nivel = st.segmented_control(
@@ -772,8 +775,10 @@ def cambiar_linea():
 
 
 with st.sidebar:
-    st.button("LOSSIA", key="lossia_inicio", type="tertiary", width="stretch",
-              on_click=navegar, args=("inicio",))
+    with st.container(key="marca_lossia"):
+        st.html('<div class="marca-origen">HACKATHON · ICAI</div>')
+        st.button("LOSSIA", key="lossia_inicio", type="tertiary", width="content",
+                  on_click=navegar, args=("inicio",))
     with st.container(key="filtro_centro"):
         centro_activo = st.selectbox("Centro / Ciudad", list(CENTROS),
                                      format_func=lambda centro: CENTROS[centro]["nombre"],
