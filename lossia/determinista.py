@@ -15,8 +15,16 @@ Severidad (Kuo et al.):
     S_j = (SAT_{j-1} + DES_{j+1}) - (SAT_j + DES_j)       en fracción de TR
     S_1 = DES_2 - SAT_1 ;  S_M = SAT_{M-1} - DES_M         (extremos de la línea)
 
-Cuello relevante: severidad >= config.SEVERIDAD_MIN. Las máquinas se ordenan por
-relevancia y severidad (la severidad mide cuánto más esperan las vecinas que ella misma).
+Máquina penalizante ("relevante"): cumple las dos condiciones
+  1. las flechas convergen en ella con severidad >= config.SEVERIDAD_MIN, y
+  2. TAP / TAI > config.COCIENTE_TAP_TAI_MIN (criterio de HORSE): se para más por sí misma
+     que por culpa de sus vecinas. Si no, es una víctima de su entorno aunque las flechas
+     converjan en ella (la saturación de la anterior puede venir de otra causa).
+Las máquinas se ordenan por relevancia y severidad (la severidad mide cuánto más esperan
+las vecinas que ella misma). En un periodo de varios días, si se pasan las filas diarias
+(`etapa_dia`), las penalizantes se ordenan primero por el número de días en que fueron la
+penalizante principal y después por severidad: así un empate de severidad en el agregado
+lo decide la máquina que más días frena la línea.
 
 Horas inducidas: para cada cuello se recorre su zona de influencia
     - aguas arriba mientras las flechas apunten hacia él, sumando la SAT de esas etapas
@@ -30,7 +38,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import config as C
+from . import config as C, datos as D
 
 DER, IZQ = "→", "←"
 
@@ -90,22 +98,52 @@ def _analizar_periodo(g: pd.DataFrame) -> pd.DataFrame:
     out["zona_desde"] = np.where(es_cuello, g["Etapa"].to_numpy()[zona_ini], "")
     out["zona_hasta"] = np.where(es_cuello, g["Etapa"].to_numpy()[zona_fin], "")
 
-    out["es_relevante"] = out["es_cuello"] & (out["severidad"] >= C.SEVERIDAD_MIN)
-    # Ranking: cuellos relevantes, luego cuellos débiles, luego el resto; dentro, por severidad
-    orden = out.assign(_r=~out["es_relevante"], _c=~out["es_cuello"]).sort_values(
-        ["_r", "_c", "severidad"], ascending=[True, True, False]
+    tap = g["TAP"].to_numpy(dtype=float)
+    tai = (g["DES"] + g["SAT"]).to_numpy(dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cociente = np.where(tai > 0, tap / tai, np.where(tap > 0, np.inf, np.nan))
+    out["cociente_tap_tai"] = cociente
+    out["causa_propia"] = np.nan_to_num(cociente, nan=0.0) > C.COCIENTE_TAP_TAI_MIN
+    out["es_relevante"] = (out["es_cuello"] & (out["severidad"] >= C.SEVERIDAD_MIN)
+                           & out["causa_propia"])
+    return _ordenar(out)
+
+
+def _ordenar(out: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ranking de un periodo: penalizantes, luego cuellos no penalizantes, luego el resto.
+    Dentro de las penalizantes, por días como principal (si existe la columna) y severidad.
+    """
+    out = out.copy()
+    dias = out["dias_principal"] if "dias_principal" in out else pd.Series(0, index=out.index)
+    orden = out.assign(_r=~out["es_relevante"], _c=~out["es_cuello"],
+                       _d=dias.where(out["es_relevante"], 0)).sort_values(
+        ["_r", "_c", "_d", "severidad"], ascending=[True, True, False, False]
     ).index
-    out.loc[orden, "rango_det"] = np.arange(1, m + 1)
+    out.loc[orden, "rango_det"] = np.arange(1, len(out) + 1)
     out["rango_det"] = out["rango_det"].astype(int)
     out["es_principal"] = out["rango_det"] == 1
     return out
 
 
-def analizar(agregado: pd.DataFrame) -> pd.DataFrame:
-    """Aplica el método a cada periodo, solo sobre las etapas de la cadena serie."""
+def analizar(agregado: pd.DataFrame, etapa_dia: pd.DataFrame | None = None) -> pd.DataFrame:
+    """
+    Aplica el método a cada periodo, solo sobre las etapas de la cadena serie.
+
+    etapa_dia: filas (día, etapa) con las que se construyó `agregado`. Si se pasan, se añade
+    `dias_principal` (días en que cada etapa fue la penalizante principal) y se usa para
+    desempatar el ranking del periodo agregado.
+    """
     cadena = agregado[agregado["en_cadena"]]
-    partes = [_analizar_periodo(g) for _, g in cadena.groupby("Periodo", sort=False)]
-    return pd.concat(partes, ignore_index=True)
+    out = pd.concat([_analizar_periodo(g) for _, g in cadena.groupby("Periodo", sort=False)],
+                    ignore_index=True)
+    if etapa_dia is None:
+        return out
+    diario = analizar(D.agregar(etapa_dia, "dia"))
+    dias = diario.groupby("Etapa")["es_principal"].sum()
+    out["dias_principal"] = out["Etapa"].map(dias).fillna(0).astype(int)
+    return pd.concat([_ordenar(g) for _, g in out.groupby("Periodo", sort=False)],
+                     ignore_index=True)
 
 
 def resumen_dias(det_dia: pd.DataFrame) -> pd.DataFrame:

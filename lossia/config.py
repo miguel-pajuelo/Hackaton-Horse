@@ -34,6 +34,12 @@ DISTANCIA_MAX_PARALELO = 3   # posiciones de Orden_OP para agrupar paralelos det
 # "relevante". Por debajo, las flechas convergen pero la evidencia es débil (ruido).
 SEVERIDAD_MIN = 0.05
 
+# Cociente TAP / TAI mínimo para que una máquina sea penalizante (criterio indicado por HORSE).
+# Por encima de 1 se para más por sí misma (TAP) que por culpa de sus vecinas (TAI = DES + SAT).
+# Una máquina en la que convergen las flechas pero con TAP/TAI < 1 es una víctima de su
+# entorno, no la causa (p. ej. ST_0260: TAP/TAI = 0,38).
+COCIENTE_TAP_TAI_MIN = 1.0
+
 # --- Granularidades -----------------------------------------------------------
 GLOBAL = "GLOBAL"
 NIVELES = ("global", "dia")
