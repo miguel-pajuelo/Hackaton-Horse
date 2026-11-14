@@ -719,11 +719,13 @@ def detalle(motor, k, resultado, fechas):
                       delta_arrow="off" if etiqueta == "TAP / TAI" else "auto")
     partes = []
     if pd.notna(fila.Categoria) and fila.Categoria:
-        partes.append(f"**Categoría:** {fila.Categoria}")
+        partes.append(("Categoría", fila.Categoria))
     if pd.notna(fila.Motivo) and fila.Motivo:
-        partes.append(f"**Motivo de prioridad:** {fila.Motivo}")
+        partes.append(("Motivo de prioridad", fila.Motivo))
     if partes:
-        st.info(" · ".join(partes))
+        with st.expander("Categoría y motivo de prioridad", icon=":material/label_important:"):
+            st.html("".join(f'<div class="motivo-bloque"><span class="motivo-etiqueta">{escape(etiqueta)}</span>'
+                            f'<p class="motivo-texto">{escape(str(texto))}</p></div>' for etiqueta, texto in partes))
 
     alertas_op = [a for a in _alertas() if a.get("operacion") in maquinas]
     registro_op_todo = _registro_por_operacion()

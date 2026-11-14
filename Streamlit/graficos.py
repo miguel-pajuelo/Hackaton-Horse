@@ -134,9 +134,57 @@ def _criticidad(k):
     return fig, puntos
 
 
+def _explicacion_ranking():
+    with st.expander("¿Cómo se calcula?"):
+        st.markdown(
+            "**Severidad (método de flechas, Kuo-Lim-Meerkov):** compara cuánto se bloquea "
+            "cada etapa (satura a la anterior) frente a cuánto pasa hambre (la desabastece la "
+            "anterior). Una etapa es cuello de botella cuando las flechas de sus vecinas "
+            "convergen en ella. Es **penalizante** si además su severidad supera "
+            f"{LC.SEVERIDAD_MIN:.0%} y su cociente **TAP/TAI** (parada propia / parada inducida, "
+            f"criterio de HORSE) es mayor que {LC.COCIENTE_TAP_TAI_MIN:g}: se para más por sí misma "
+            "que por culpa de sus vecinas. Si no, es una víctima de su entorno.\n\n"
+            "**TAP medio/día** y **Fpm** son indicadores de mantenimiento: una etapa puede "
+            "pararse mucho sin ser cuello de botella (tiene capacidad sobrante o un buffer la "
+            "protege) y seguir siendo prioritaria para mantenimiento.\n\n"
+            "**Horas inducidas** suman la saturación/desabastecimiento que un cuello de botella "
+            "provoca en su zona de influencia, calculadas por `lossia/determinista.py`."
+        )
+
+
+def _ranking_cuellos(ranking, titulo):
+    """Cuellos de botella coloreados según el criterio de HORSE: penalizante (se para más por sí
+    misma, TAP/TAI > 1) o víctima de su entorno (sus paradas vienen de las vecinas)."""
+    fig = go.Figure()
+    penal = ranking.Es_relevante.fillna(False).astype(bool)
+    for filtro, nombre, color in ((penal, "Penalizante · TAP/TAI > 1", COLORES["TAP"]),
+                                  (~penal, "Cuello víctima del entorno · TAP/TAI ≤ 1", GRIS_BARRA)):
+        g = ranking[filtro]
+        if g.empty:
+            continue
+        cociente = g.TAP_TAI.map(lambda v: f"{v:.2f}" if pd.notna(v) else "—")
+        dias = g.Dias_principal.map(lambda v: f"{int(v)}" if pd.notna(v) else "—")
+        fig.add_bar(
+            x=g.Severidad * 100, y=g.Operacion, orientation="h", name=nombre, marker_color=color,
+            customdata=np.column_stack((g.Orden_OP, cociente, g.Induce_vecinos.round(1), dias)),
+            text=[f"{s * 100:.1f} %  ·  TAP/TAI {c}" for s, c in zip(g.Severidad, cociente)],
+            textposition="outside", cliponaxis=False,
+            hovertemplate=("<b>%{y}</b> · OP %{customdata[0]}<br>Severidad: %{x:.1f} %<br>"
+                           "TAP/TAI: %{customdata[1]}<br>Horas inducidas a la línea: %{customdata[2]} h<br>"
+                           "Días como penalizante principal: %{customdata[3]}<extra></extra>"),
+        )
+    fig.update_layout(height=max(320, 120 + len(ranking) * 34), barmode="overlay", bargap=.35,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
+    maximo = float((ranking.Severidad * 100).max())
+    fig.update_xaxes(title="Severidad (%)", rangemode="tozero", range=[0, maximo * 1.35])
+    fig.update_yaxes(type="category", categoryorder="array", categoryarray=list(ranking.Operacion),
+                     autorange="reversed", showgrid=False)
+    return fig
+
+
 def _ranking(k, dp_min):
     criterios = {
-        "Severidad": "Severidad (método de flechas, solo cuellos relevantes)",
+        "Severidad": "Cuellos de botella (método de flechas)",
         "TAP_medio_dia": "Parada propia media por día (mantenimiento)",
         "Induce_vecinos": "Horas inducidas a las vecinas",
         "Fpm": "Frecuencia de paro (paros / 1000 piezas)",
@@ -144,12 +192,20 @@ def _ranking(k, dp_min):
     col_a, col_b = st.columns([3, 1])
     criterio = col_a.selectbox("Ordenar por", criterios, format_func=criterios.get, key="criterio_ranking")
     top_n = col_b.selectbox("Operaciones", range(5, 31), index=5, key="top_ranking")
-    base = k[k.Es_relevante.fillna(False)] if criterio == "Severidad" else k
-    ranking = base.dropna(subset=[criterio]).nlargest(top_n, criterio)
+    if criterio == "Severidad":
+        # Todos los cuellos de botella, en el orden oficial del método (penalizantes primero,
+        # desempatadas por días como principal y severidad); no solo los que cumplen TAP/TAI > 1
+        ranking = (k[k.Es_cuello.fillna(False)].dropna(subset=["Severidad"])
+                   .sort_values(["Rango_det", "Severidad"], ascending=[True, False]).head(top_n))
+        if ranking.empty:
+            st.info("Sin cuellos de botella en la selección.")
+            return None, ranking
+        fig = _ranking_cuellos(ranking, criterios[criterio])
+        _explicacion_ranking()
+        return fig, ranking
+    ranking = k.dropna(subset=[criterio]).nlargest(top_n, criterio)
     if ranking.empty:
-        mensaje = ("Sin cuellos de botella relevantes en la selección." if criterio == "Severidad"
-                   else "Sin valores calculables para este criterio en la selección.")
-        st.info(mensaje)
+        st.info("Sin valores calculables para este criterio en la selección.")
         return None, ranking
 
     es_pct = criterio == "Severidad"
@@ -182,21 +238,7 @@ def _ranking(k, dp_min):
         type="category", categoryorder="array", categoryarray=list(ranking.Operacion),
         autorange="reversed", showgrid=False,
     )
-    with st.expander("¿Cómo se calcula?"):
-        st.markdown(
-            "**Severidad (método de flechas, Kuo-Lim-Meerkov):** compara cuánto se bloquea "
-            "cada etapa (satura a la anterior) frente a cuánto pasa hambre (la desabastece la "
-            "anterior). Una etapa es cuello de botella cuando las flechas de sus vecinas "
-            "convergen en ella. Es **penalizante** si además su severidad supera "
-            f"{LC.SEVERIDAD_MIN:.0%} y su cociente **TAP/TAI** (parada propia / parada inducida, "
-            f"criterio de HORSE) es mayor que {LC.COCIENTE_TAP_TAI_MIN:g}: se para más por sí misma "
-            "que por culpa de sus vecinas. Si no, es una víctima de su entorno.\n\n"
-            "**TAP medio/día** y **Fpm** son indicadores de mantenimiento: una etapa puede "
-            "pararse mucho sin ser cuello de botella (tiene capacidad sobrante o un buffer la "
-            "protege) y seguir siendo prioritaria para mantenimiento.\n\n"
-            "**Horas inducidas** suman la saturación/desabastecimiento que un cuello de botella "
-            "provoca en su zona de influencia, calculadas por `lossia/determinista.py`."
-        )
+    _explicacion_ranking()
     return fig, ranking
 
 
