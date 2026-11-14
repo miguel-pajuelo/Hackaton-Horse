@@ -47,6 +47,8 @@
 [data-testid="stSidebarHeader"] { height: 0; padding: 0 12px; }
 [data-testid="stSidebarCollapseButton"] { z-index: 2; margin-top: 36px; }
 [data-testid="stSidebarCollapseButton"] button { visibility: visible; }
+/* la cabecera mide 0 px: sin esto el botón de abrir el lateral queda medio fuera de la pantalla */
+[data-testid="stExpandSidebarButton"] { position: fixed; top: 16px; left: 16px; z-index: 1001; }
 [data-testid="stSidebar"] [data-testid="stSidebarContent"] { border-radius: 0; padding: 0; overflow-y: auto; }
 [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
     padding: 20px 22px 24px;
@@ -301,9 +303,9 @@
     border: 1.5px solid #6B7F96;
     border-radius: 2px;
     color: var(--lossia-ink);
-    background: #EBE5D3;
+    background: transparent;   /* mismo fondo que su tarjeta */
 }
-.st-key-insights [data-testid="stButton"] button:hover { background: #DED5BE; border-color: #6B7F96; }
+.st-key-insights [data-testid="stButton"] button:hover { background: rgba(10, 37, 64, .06); border-color: #6B7F96; }
 /* la máquina es el resultado central de cada insight: tiene que leerse de un vistazo */
 .st-key-insights [data-testid="stButton"] button p { font-size: clamp(20px, 1.9vw, 28px); font-weight: 700; letter-spacing: .01em; }
 .st-key-insights [data-testid="stElementContainer"]:has(.insight-cifras) { margin-top: auto; }

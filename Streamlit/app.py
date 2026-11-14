@@ -533,7 +533,7 @@ def insights(k: pd.DataFrame, resultado: LI.Resultado):
     días (no sobre el recorte de tramo/tipo/máquinas, que es solo de presentación)."""
     with st.container(key="insights"):
         st.html(f'<h2>{icono("barras")} Insights principales</h2>')
-        c1, c2, c3 = st.columns([1.25, 1, 1])
+        c1, c2, c3 = st.columns(3)
         with c1:
             principales = k.loc[k.Es_principal.fillna(False) & k.Es_relevante.fillna(False)]
             if not principales.empty:
