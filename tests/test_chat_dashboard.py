@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import re
 from pathlib import Path
 import sys
 import threading
@@ -73,11 +74,15 @@ class _ClienteFalso:
         pregunta = next(m["content"] for m in reversed(mensajes) if m["role"] == "user")
         ultimo = mensajes[-1]
         if ultimo["role"] != "tool":
+            nombre = re.search(r"\b(?:ST|PM)[-_ ]?\d{4}\b", pregunta)
             llamada = SimpleNamespace(id="abc123def", function=SimpleNamespace(
-                name="kpis_etapa", arguments=json.dumps({"nombre": "ST-2390"})))
+                name="kpis_etapa", arguments=json.dumps({"nombre": nombre.group(0) if nombre else "ST-2390"})))
             return _respuesta(SimpleNamespace(content=None, tool_calls=[llamada]))
         dato = json.loads(ultimo["content"])
-        if "inventa" in pregunta:
+        if dato.get("en_analisis") is False:
+            texto = (f"{dato['operacion']} está fuera del análisis ({dato['motivo_exclusion']}): "
+                     "no tiene indicadores fiables.")
+        elif "inventa" in pregunta:
             texto = f"{dato['etapa']} tiene una disponibilidad del {_coma(dato['tiempo_ciclo_cmin'])} %."
         else:
             texto = (f"La disponibilidad propia de {dato['etapa']} es del "
@@ -149,6 +154,18 @@ def test_pregunta_st2390_verificada_y_cambio_de_periodo():
         conexion.EstadoLLM.cliente = original
 
 
+def test_maquina_excluida_se_explica():
+    at, original = _app(cliente=_ClienteFalso())
+    try:
+        at.chat_input(key="chat_entrada").set_value("¿Cómo va la ST_0030?").run()
+        assert not at.exception, at.exception
+        texto = _textos(at.markdown)
+        assert "ST_0030" in texto and "máquina sin datos" in texto, texto
+        assert "Revisar" not in _textos(at.warning)
+    finally:
+        conexion.EstadoLLM.cliente = original
+
+
 def test_respuesta_no_verificada_se_marca():
     at, original = _app(cliente=_ClienteFalso())
     try:
@@ -190,6 +207,18 @@ def test_fallo_al_generar_muestra_error_y_no_rompe():
         at.chat_input(key="chat_entrada").set_value("¿Qué disponibilidad propia tiene ST-2390?").run()
         assert not at.exception, at.exception
         assert "No se ha podido obtener respuesta" in _textos(at.error)
+    finally:
+        conexion.EstadoLLM.cliente = original
+
+
+def test_falta_el_sdk_lo_dice_claramente():
+    error = ModuleNotFoundError("No module named 'openai'", name="openai")
+    at, original = _app(cliente=_ClienteFalso(fallo=error))
+    try:
+        at.chat_input(key="chat_entrada").set_value("¿Qué disponibilidad propia tiene ST-2390?").run()
+        assert not at.exception, at.exception
+        texto = _textos(at.error)
+        assert "openai" in texto and "requirements.txt" in texto and "túnel" not in texto, texto
     finally:
         conexion.EstadoLLM.cliente = original
 

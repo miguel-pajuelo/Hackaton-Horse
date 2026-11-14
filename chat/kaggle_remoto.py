@@ -24,7 +24,8 @@ import urllib.request
 
 URL_CLOUDFLARED = "https://github.com/cloudflare/cloudflared/releases/{version}/cloudflared-linux-amd64"
 _URL_TUNEL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
-CARPETAS_APP = ("lossia", "chat", "Streamlit", "Datos_limpios", "Resultados", ".streamlit")
+CARPETAS_APP = ("lossia", "chat", "Streamlit", "Datos_limpios", "Resultados", ".streamlit",
+                "simulador")   # simulador/: vista «Simulación de la línea» del dashboard
 ARCHIVOS_APP = ("analisis.py",)   # el botón «Regenerar Resultados/» del dashboard lo importa
 # Archivos que el dataset de Kaggle debe contener (rutas relativas a la raíz del repo).
 NECESARIOS = {
@@ -34,8 +35,11 @@ NECESARIOS = {
              "Datos_limpios/registro_limpieza.json", "Resultados/kpis_global.csv"],
     "app": ["Streamlit/app.py", "Streamlit/graficos.py", "Streamlit/centros.py",
             "Streamlit/lossia.css", "Streamlit/requirements.txt", "Streamlit/assets/horse.png",
-            "Streamlit/assets/visualizaciones/reparto.svg", ".streamlit/config.toml",
-            "analisis.py"],
+            *(f"Streamlit/assets/visualizaciones/{v}.svg"
+              for v in ("reparto", "criticidad", "ranking", "disponibilidad", "paradas")),
+            ".streamlit/config.toml", "analisis.py",
+            "simulador/simulador_linea.py", "simulador/animacion_linea.py",
+            "simulador/plantilla_animacion.html", "Resultados/etapas.csv"],
 }
 EXCLUIR = ("__pycache__", "*.pyc", ".ipynb_checkpoints", "secrets.toml", "*.log")
 MODULOS_APP = ("streamlit", "plotly", "matplotlib", "openai")  # de Streamlit/requirements.txt
