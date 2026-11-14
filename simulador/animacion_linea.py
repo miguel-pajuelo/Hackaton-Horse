@@ -57,6 +57,61 @@ def estados(p, res, ciclo, t0, t1, paso_s):
     }
 
 
+OSCURO = """
+  :root { --bg: transparent; --panel: #FBF8F1; --ink: #0A2540; --muted: #3C5878; --line: #C9BFA3;
+          --ok: #3C7A5E; --stop: #B8441F; --sat: #4F6D8F; --des: #C9973F; }
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  header { display: none; }
+  .card, button, select, .seg { border-radius: 2px; }
+  .kpi .l { font-family: 'IBM Plex Mono', ui-monospace, monospace; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+  .kpi .v { font-family: 'IBM Plex Serif', Georgia, serif; font-weight: 500; }
+  button.play { background: #0A2540; color: #F5F1E8; border-color: #0A2540; }
+  .seg button.on { background: #0A2540; color: #F5F1E8; }
+  .maq rect { rx: 2; }
+  .bufbg { fill: #E4DCC8; } .buffill { fill: #3C5878; } .flecha { stroke: #B7AC90; }
+  #tip { background: #0A2540; color: #F5F1E8; border-radius: 2px; }
+  input[type=range] { accent-color: #B8441F; }
+"""
+
+
+def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer: int = 8, paso: int = 60,
+                   semilla: int = 2026, oscuro: bool = False):
+    """Simula la jornada en dos escenarios y devuelve (html, motores_actual, motores_mejora).
+    factor = fracción de las paradas de 'mejorar' que se mantiene (0 = sin paradas)."""
+    p, horas_dia, real = cargar_parametros(raiz)
+    if mejorar not in set(p["Etapa"]):
+        raise ValueError(f"No existe la etapa {mejorar}")
+    horizonte = horas_dia * H
+    t0, t1 = horizonte, 2 * horizonte
+    K = piezas_necesarias(p, horizonte)
+    ciclo = p["ciclo_s"].to_numpy()
+    reduccion = round((1 - factor) * 100)
+    nombre_mejora = (f"Sin paradas en {mejorar}" if reduccion == 100
+                     else f"{mejorar} con {reduccion} % menos paradas")
+    escenarios, piezas = {}, []
+    for nombre, quitar in [("Situación actual", None), (nombre_mejora, mejorar)]:
+        rng = np.random.default_rng(semilla)
+        t, paradas = tiempos_servicio(p, K, rng)
+        if quitar:
+            i = int(p.index[p["Etapa"] == quitar][0])
+            t[i] -= paradas[i] * (1 - factor)
+        res = simular(t, buffer, horizonte, guardar=True)
+        escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso)
+        piezas.append(res["piezas"])
+    datos = {
+        "etapas": p["Etapa"].tolist(), "orden": p["Orden"].astype(int).tolist(),
+        "n_par": p["n_par"].astype(int).tolist(), "buffer": buffer, "paso": paso,
+        "real": round(real), "escenarios": escenarios,
+    }
+    plantilla = (Path(__file__).parent / "plantilla_animacion.html").read_text(encoding="utf-8")
+    html = plantilla.replace("/*__DATOS__*/null", json.dumps(datos, ensure_ascii=False, separators=(",", ":")))
+    if oscuro:
+        fuentes = ('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&'
+                   'family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@500&display=swap">')
+        html = html.replace("<title>", fuentes + "<title>", 1).replace("</style>", OSCURO + "</style>", 1)
+    return html, piezas[0], piezas[1]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--raiz", type=Path, default=Path("."))
@@ -65,37 +120,11 @@ def main() -> None:
     ap.add_argument("--paso", type=int, default=60, help="segundos entre fotogramas")
     ap.add_argument("--semilla", type=int, default=2026)
     a = ap.parse_args()
-
-    p, horas_dia, real = cargar_parametros(a.raiz)
-    if a.mejorar not in set(p["Etapa"]):
-        raise SystemExit(f"No existe la etapa {a.mejorar}. Opciones: {', '.join(p['Etapa'])}")
-    horizonte = horas_dia * H
-    t0, t1 = horizonte, 2 * horizonte
-    K = piezas_necesarias(p, horizonte)
-    ciclo = p["ciclo_s"].to_numpy()
-
-    escenarios = {}
-    for nombre, quitar in [("Situación actual", None), (f"Sin paradas en {a.mejorar}", a.mejorar)]:
-        rng = np.random.default_rng(a.semilla)
-        t, paradas = tiempos_servicio(p, K, rng)
-        if quitar:
-            i = int(p.index[p["Etapa"] == quitar][0])
-            t[i] -= paradas[i]
-        res = simular(t, a.buffer, horizonte, guardar=True)
-        escenarios[nombre] = estados(p, res, ciclo, t0, t1, a.paso)
-        print(f"{nombre}: {res['piezas']} motores en {horas_dia:.0f} h")
-
-    datos = {
-        "etapas": p["Etapa"].tolist(),
-        "orden": p["Orden"].astype(int).tolist(),
-        "n_par": p["n_par"].astype(int).tolist(),
-        "buffer": a.buffer,
-        "paso": a.paso,
-        "real": round(real),
-        "escenarios": escenarios,
-    }
-    plantilla = (Path(__file__).parent / "plantilla_animacion.html").read_text(encoding="utf-8")
-    html = plantilla.replace("/*__DATOS__*/null", json.dumps(datos, ensure_ascii=False, separators=(",", ":")))
+    try:
+        html, base, mejora = construir_html(a.raiz, a.mejorar, buffer=a.buffer, paso=a.paso, semilla=a.semilla)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    print(f"Situación actual: {base} motores · Sin paradas en {a.mejorar}: {mejora} motores")
     salida = a.raiz / "simulador" / "salidas" / "animacion_linea.html"
     salida.parent.mkdir(parents=True, exist_ok=True)
     salida.write_text(html, encoding="utf-8")

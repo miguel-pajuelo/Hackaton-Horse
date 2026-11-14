@@ -25,6 +25,7 @@ import streamlit as st
 APP = Path(__file__).resolve().parent
 REPO = APP.parent
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "simulador"))
 
 from lossia import config as LC, interfaz as LI  # noqa: E402
 from graficos import mostrar_grafico  # noqa: E402
@@ -53,6 +54,7 @@ ACCESOS = {
     "ranking": "Top penalizantes",
     "disponibilidad": "Evolución de objetivos",
     "paradas": "Parada propia vs. inducida",
+    "simulacion": "Simulación de la línea",
 }
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
             "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "Categoria"]
@@ -264,7 +266,7 @@ def icono(nombre):
         "aviso": '<path d="M10.3 4.5 3 18a1.5 1.5 0 0 0 1.3 2.2h15.4A1.5 1.5 0 0 0 21 18L13.7 4.5a2 2 0 0 0-3.4 0ZM12 9v4m0 3h.01"/>',
         "llave": '<path d="M14.7 6.3a5 5 0 0 0-6.4 6.4l-5.7 5.7a2.1 2.1 0 0 0 3 3l5.7-5.7a5 5 0 0 0 6.4-6.4l-3.2 3.2-3-3Z"/>',
     }
-    color = "#FFFFFF" if nombre == "subida" else "#dedede"
+    color = "#B8441F" if nombre == "subida" else "#0A2540"
     return imagen_svg(
         "lossia-icon",
         f'<g fill="none" stroke="{color}" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">'
@@ -429,12 +431,12 @@ def detalle_calidad(alerta: dict, registro: list | None = None):
 def medidor(valor):
     nivel = min(100, max(0, float(valor)))
     arco = "M10 56a48 48 0 0 1 96 0"
-    progreso = (f'<path d="{arco}" stroke="#FFFFFF" pathLength="100" '
+    progreso = (f'<path d="{arco}" stroke="#0A2540" pathLength="100" '
                 f'stroke-dasharray="{nivel:.3f} 106"/>' if nivel else "")
     return imagen_svg(
         "gauge",
         '<g fill="none" stroke-width="13" stroke-linecap="round">'
-        f'<path d="{arco}" stroke="#606060"/>{progreso}</g>',
+        f'<path d="{arco}" stroke="#DED5BE"/>{progreso}</g>',
         "0 0 116 66",
     )
 
@@ -456,8 +458,8 @@ def kpis_cabecera(k: pd.DataFrame):
     )
     anillo = imagen_svg(
         "kpi-anillo",
-        '<circle cx="60" cy="60" r="45" fill="none" stroke="#606060" stroke-width="12"/>'
-        f'<circle cx="60" cy="60" r="45" fill="none" stroke="#fff" stroke-width="12" '
+        '<circle cx="60" cy="60" r="45" fill="none" stroke="#DED5BE" stroke-width="12"/>'
+        f'<circle cx="60" cy="60" r="45" fill="none" stroke="#0A2540" stroke-width="12" '
         f'stroke-dasharray="{dp_pct:.4f} 100" pathLength="100" '
         'transform="rotate(-90 60 60)"/>',
         "0 0 120 120",
@@ -515,11 +517,11 @@ def insights(k: pd.DataFrame, resultado: LI.Resultado):
                 fila = principales.iloc[0]
                 red = imagen_svg(
                     "insight-red",
-                    '<path d="M14 30h92" stroke="#8d8d8d" stroke-width="2"/>'
-                    '<circle cx="14" cy="30" r="9" fill="#8d8d8d"/>'
-                    '<circle cx="60" cy="30" r="18" fill="#5c5c5c"/>'
-                    '<circle cx="60" cy="30" r="10" fill="#e8e8e8"/>'
-                    '<circle cx="106" cy="30" r="9" fill="#8d8d8d"/>',
+                    '<path d="M14 30h92" stroke="#B7AC90" stroke-width="2"/>'
+                    '<circle cx="14" cy="30" r="9" fill="#B7AC90"/>'
+                    '<circle cx="60" cy="30" r="18" fill="#E8CFC0"/>'
+                    '<circle cx="60" cy="30" r="10" fill="#B8441F"/>'
+                    '<circle cx="106" cy="30" r="9" fill="#B7AC90"/>',
                     "0 0 120 60",
                 )
                 insight("subida", "Cuello de botella (método de flechas)", op=fila.Operacion,
@@ -536,8 +538,8 @@ def insights(k: pd.DataFrame, resultado: LI.Resultado):
                 barras = imagen_svg(
                     "insight-barras",
                     '<path d="M10 58V48m22 10V38m22 20V25m22 33V12" '
-                    'stroke="#717171" stroke-width="13" stroke-linecap="round"/>'
-                    '<path d="M76 58V12" stroke="#dedede" stroke-width="13" stroke-linecap="round"/>',
+                    'stroke="#C9BFA3" stroke-width="13" stroke-linecap="round"/>'
+                    '<path d="M76 58V12" stroke="#0A2540" stroke-width="13" stroke-linecap="round"/>',
                     "0 0 86 67",
                 )
                 insight("llave", "Prioridad de mantenimiento", op=fila.Etapa,
@@ -730,7 +732,8 @@ def tabla(k: pd.DataFrame, datos_locales: bool):
 
 def menu():
     with st.popover("Opciones", icon=":material/more_horiz:", key="acciones", on_change="rerun"):
-        for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"), ("datos", "Tabla de datos")):
+        for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"), ("datos", "Tabla de datos"),
+                                 ("simulacion", "Simulación de la línea")):
             st.button(etiqueta, on_click=navegar, args=(destino,), kwargs={"cerrar_menu": True}, width="stretch")
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
         desactualizado = LI.resultados_desactualizados(DIR_LIMPIOS, DIR_RESULTADOS)
@@ -772,6 +775,64 @@ with st.sidebar:
                                     format_func=lambda linea: lineas[linea]["nombre"],
                                     key="linea", on_change=cambiar_linea)
 
+
+# --- Simulación de la línea (simulador/) ----------------------------------------------
+@st.cache_data(show_spinner=False)
+def etapas_simulador(raiz):
+    import simulador_linea as SL
+    p, horas, real = SL.cargar_parametros(Path(raiz))
+    return p["Etapa"].tolist(), real
+
+
+@st.cache_data(show_spinner=False, max_entries=20)
+def simulacion_html(raiz, mejorar, factor, buffer):
+    import animacion_linea as AL
+    return AL.construir_html(Path(raiz), mejorar, factor=factor, buffer=buffer, oscuro=True)
+
+
+def simulacion():
+    import streamlit.components.v1 as components
+    try:
+        etapas, real = etapas_simulador(str(REPO))
+    except (OSError, KeyError, ValueError) as exc:
+        st.error(f"No se puede preparar la simulación: {exc}")
+        return
+    st.caption("Réplica de la línea con eventos discretos: cada etapa trabaja a su tiempo de ciclo y sufre "
+               "paradas con la frecuencia y duración reales; las paradas se propagan solas a las vecinas. "
+               "Compara una jornada actual con otra en la que se mejora una etapa.")
+    with st.container(key="sim_controles", horizontal=True, vertical_alignment="bottom", gap="medium"):
+        mejorar = st.selectbox("Etapa a mejorar", etapas, key="sim_etapa",
+                               index=etapas.index("PM_2250") if "PM_2250" in etapas else 0)
+        reduccion = st.slider("Reducción de sus paradas", 10, 100, 100, step=10, format="%d %%", key="sim_red")
+        buffer = st.number_input("Piezas entre etapas (buffer)", 1, 20, 8, key="sim_buffer",
+                                 help="8 es el valor calibrado con la producción real.")
+    with st.spinner("Simulando la jornada…"):
+        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, int(buffer))
+    with st.container(key="sim_kpis", horizontal=True, gap="medium"):
+        st.metric("Producción real media", f"{real:,.0f}".replace(",", "."), border=True)
+        st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."), border=True)
+        st.metric(f"Simulada · mejorando {mejorar}", f"{mejora:,}".replace(",", "."),
+                  delta=f"{mejora - base:+d} motores/día", border=True)
+    components.html(html, height=1080, scrolling=True)
+
+    ranking = REPO / "simulador" / "salidas" / "ranking_simulado.csv"
+    with st.expander("Ranking: motores/día ganados al eliminar las paradas de cada etapa"):
+        if ranking.exists():
+            rk = pd.read_csv(ranking).head(15)
+            st.bar_chart(rk.set_index("Etapa")["motores_dia_ganados"], horizontal=True, sort=False,
+                         x_label="Motores/día ganados", y_label="")
+            st.dataframe(rk, hide_index=True, width="stretch")
+        else:
+            st.info("Todavía no hay ranking calculado.")
+        if st.button("Recalcular ranking (≈1 min)", icon=":material/refresh:", key="sim_recalcular"):
+            import subprocess
+            with st.spinner("Simulando cada etapa sin paradas…"):
+                r = subprocess.run([sys.executable, "simulador/simulador_linea.py", "--buffer", str(int(buffer))],
+                                   cwd=REPO, capture_output=True, text=True)
+            if r.returncode == 0:
+                st.rerun()
+            st.error(r.stderr[-800:])
+
 linea_config = lineas[linea_activa]
 DIR_LIMPIOS = Path(linea_config["datos"])
 DIR_RESULTADOS = Path(linea_config["resultados"])
@@ -783,8 +844,20 @@ vista = st.session_state.get("vista", "inicio")
 if vista == "inicio":
     nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
 else:
-    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos"}
+    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos", "simulacion": "Simulación de la línea"}
     nombre_vista = titulo.get(vista) or VISTAS[vista][1]
+NAV = (("inicio", "resumen"), ("ranking", "penalizantes"), ("detalle", "máquinas"), ("datos", "datos"))
+with st.container(key="barra_nav", horizontal=True, vertical_alignment="center", gap="medium"):
+    st.button("lossia", key="nav_marca", type="tertiary", on_click=navegar, args=("inicio",))
+    with st.container(key="nav_enlaces", horizontal=True, horizontal_alignment="center",
+                      vertical_alignment="center", gap="large", width="stretch"):
+        for destino, etiqueta in NAV:
+            st.button(etiqueta, key=f"nav_{destino}", type="tertiary", on_click=navegar, args=(destino,))
+    st.button("Simular la línea", key="nav_cta", type="primary", on_click=navegar, args=("simulacion",))
+if f"nav_{vista}" in {f"nav_{d}" for d, _ in NAV}:
+    st.html(f"<style>.st-key-nav_{vista} button {{ border-bottom-color: var(--lossia-accent) !important; }}"
+            f".st-key-nav_{vista} button p {{ color: var(--lossia-ink) !important; }}</style>")
+
 with st.container(key="cabecera"):
     cabecera, acciones = st.columns([1, 0.38], vertical_alignment="top")
     with cabecera:
@@ -831,7 +904,9 @@ if vista != "inicio":
     st.button("Resumen de la línea", icon=":material/arrow_back:", type="tertiary",
               on_click=navegar, args=("inicio",), key="volver")
 
-if k.empty:
+if vista == "simulacion":
+    simulacion()
+elif k.empty:
     st.warning("No hay datos para los filtros seleccionados.")
     st.button("Restablecer filtros", on_click=restablecer_filtros, key="restablecer_vacio")
     if vista == "inicio":
