@@ -34,7 +34,11 @@ def _motivos(f: pd.Series) -> str:
     m = []
     if f["es_relevante"]:
         m.append(f"Frena la línea: la anterior la espera y la siguiente se queda sin piezas "
-                 f"(severidad {f['severidad']:.0%})")
+                 f"(severidad {f['severidad']:.0%}) y se para más por sí misma que por las demás "
+                 f"(TAP/TAI {f['cociente_tap_tai']:.1f})")
+    elif f["es_cuello"] and f["severidad"] >= C.SEVERIDAD_MIN:
+        m.append(f"Víctima: las flechas convergen en ella pero sus paradas vienen sobre todo de "
+                 f"sus vecinas (TAP/TAI {f['cociente_tap_tai']:.2f} < {C.COCIENTE_TAP_TAI_MIN:g})")
     if f["cumple_Dp"] == False:  # noqa: E712
         m.append(f"Disponibilidad {f['Dp']:.0%} < {C.DP_MIN:.0%}: {f['TAP_medio_dia']:.1f} h/día de parada propia")
     if f["cumple_Tcy"] == False:  # noqa: E712 (NaN = sin dato)
@@ -53,7 +57,8 @@ def vista(k: pd.DataFrame, det: pd.DataFrame) -> pd.DataFrame:
     incumplimientos de disponibilidad (por TAP), luego de ciclo, luego el resto.
     """
     m = mantenimiento(k)
-    d = det[["Periodo", "Etapa", "es_cuello", "es_relevante", "severidad", "horas_inducidas", "rango_det"]]
+    d = det[["Periodo", "Etapa", "es_cuello", "es_relevante", "severidad", "cociente_tap_tai",
+             "horas_inducidas", "rango_det"]]
     v = m.merge(d, on=["Periodo", "Etapa"], how="left")
     v["es_cuello"] = v["es_cuello"].astype("boolean").fillna(False).astype(bool)
     v["es_relevante"] = v["es_relevante"].astype("boolean").fillna(False).astype(bool)
@@ -68,7 +73,8 @@ def vista(k: pd.DataFrame, det: pd.DataFrame) -> pd.DataFrame:
     )
     v["motivo"] = v.apply(_motivos, axis=1)
     grupo = np.select([v["es_relevante"], falla_dp, falla_tcy], [0, 1, 2], default=3)
-    clave = np.where(grupo == 0, -v["severidad"].fillna(0), -v["TAP_medio_dia"])
+    # Penalizantes en el orden del método determinista (incluye el desempate por días)
+    clave = np.where(grupo == 0, v["rango_det"].fillna(0), -v["TAP_medio_dia"])
     v = v.assign(_g=grupo, _k=clave).sort_values(["Periodo", "_g", "_k"])
     v["orden_vista"] = v.groupby("Periodo").cumcount() + 1
     return v.drop(columns=["_g", "_k"]).reset_index(drop=True)

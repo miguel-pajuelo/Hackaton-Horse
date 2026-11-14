@@ -153,7 +153,7 @@ def _resultado_en_vivo(motor: Motor, dias: list[str] | None, es_global: bool) ->
         return Resultado(vacio, vacio, vacio, vacio, seleccion, es_global, BAJO_DEMANDA)
     agg = datos.agregar(base, "global")
     k = kpis.calcular(agg)
-    det = determinista.analizar(agg)
+    det = determinista.analizar(agg, base)  # desempate por días como principal
     mant = prioridades.mantenimiento(k)
     pri = prioridades.vista(k, det)
     return Resultado(k, det, mant, pri, seleccion, es_global, BAJO_DEMANDA)

@@ -47,7 +47,7 @@ def main(dir_limpios: Path, dir_res: Path) -> None:
     for nivel in C.NIVELES:
         agg = datos.agregar(etapa_dia, nivel)
         k = kpis.calcular(agg)
-        det = determinista.analizar(agg)
+        det = determinista.analizar(agg, etapa_dia if nivel == "global" else None)
         guardar(k, f"kpis_{nivel}.csv")
         guardar(det, f"determinista_{nivel}.csv")
         guardar(prioridades.mantenimiento(k), f"mantenimiento_{nivel}.csv")
