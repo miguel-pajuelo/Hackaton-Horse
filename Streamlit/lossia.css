@@ -881,3 +881,5 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 :is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] { min-height: 0 !important; justify-content: flex-start !important; }
 .st-key-sim_kpis [data-testid="stMetricValue"] { font-size: clamp(26px, 2.2vw, 34px) !important; }
 .st-key-sim_kpis [data-testid="stMetricLabel"] { min-height: 1.6em; }
+.st-key-sim_controles .st-key-sim_buf_popover { flex: 0 0 auto !important; }
+.st-key-sim_controles .st-key-sim_buf_popover button { min-height: 40px; border-radius: 2px; }
