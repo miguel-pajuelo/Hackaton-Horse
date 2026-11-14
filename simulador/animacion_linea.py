@@ -1,0 +1,135 @@
+"""
+Animación de la Línea 5 a partir del simulador (reto LOSSIA, Hackathon HORSE).
+
+Simula una jornada y guarda, minuto a minuto, el estado de cada etapa:
+    funcionando (TBF) · parada propia (TAP) · bloqueada / saturada (SAT) · sin piezas (DES)
+y cuántas piezas hay en cada buffer entre etapas. Genera una página HTML
+autónoma con la línea dibujada en zigzag que se reproduce como un vídeo.
+
+Incluye dos escenarios con los mismos números aleatorios, para comparar:
+    · Situación actual
+    · Sin paradas en la etapa indicada con --mejorar (por defecto PM_2250)
+
+Uso (desde la raíz del repo):
+    python simulador/animacion_linea.py
+    python simulador/animacion_linea.py --mejorar ST_0260 --paso 30
+
+Salida: simulador/salidas/animacion_linea.html
+Para meterlo luego en Streamlit:
+    st.components.v1.html(Path(".../animacion_linea.html").read_text(), height=900)
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+from simulador_linea import H, cargar_parametros, piezas_necesarias, simular, tiempos_servicio
+
+
+def estados(p, res, ciclo, t0, t1, paso_s):
+    """Devuelve, por fotograma, una cadena con el estado de cada etapa y otra con los buffers."""
+    S, C, D = res["S"], res["C"], res["D"]
+    T = np.arange(t0, t1, paso_s)
+    n = S.shape[0]
+    est = np.zeros((len(T), n), dtype=np.int8)
+    for i in range(n):
+        k = np.clip(np.searchsorted(S[i], T, side="right") - 1, 0, S.shape[1] - 1)
+        s, c, d = S[i, k], C[i, k], D[i, k]
+        e = np.full(len(T), 3, dtype=np.int8)        # 3 = sin piezas (DES)
+        e[T < d] = 2                                 # 2 = bloqueada (SAT)
+        e[T < c] = 1                                 # 1 = parada propia (TAP)
+        e[T < s + ciclo[i]] = 0                      # 0 = funcionando
+        est[:, i] = e
+    buf = np.zeros((len(T), max(n - 1, 0)), dtype=np.int16)
+    for i in range(n - 1):
+        salidos = np.searchsorted(np.sort(D[i]), T, side="right")
+        entrados = np.searchsorted(S[i + 1], T, side="right")
+        buf[:, i] = np.clip(salidos - entrados, 0, 35)
+    producidos = np.searchsorted(np.sort(D[-1]), T, side="right") - np.searchsorted(np.sort(D[-1]), t0)
+    alfabeto = "0123456789abcdefghijklmnopqrstuvwxyz"
+    return {
+        "est": ["".join(map(str, fila)) for fila in est],
+        "buf": ["".join(alfabeto[x] for x in fila) for fila in buf],
+        "prod": producidos.astype(int).tolist(),
+    }
+
+
+OSCURO = """
+  :root { --bg: transparent; --panel: #FBF8F1; --ink: #0A2540; --muted: #3C5878; --line: #C9BFA3;
+          --ok: #3C7A5E; --stop: #B8441F; --sat: #4F6D8F; --des: #C9973F; }
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  header { display: none; }
+  .card, button, select, .seg { border-radius: 2px; }
+  .kpi .l { font-family: 'IBM Plex Mono', ui-monospace, monospace; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+  .kpi .v { font-family: 'IBM Plex Serif', Georgia, serif; font-weight: 500; }
+  button.play { background: #0A2540; color: #F5F1E8; border-color: #0A2540; }
+  .seg button.on { background: #0A2540; color: #F5F1E8; }
+  .maq rect { rx: 2; }
+  .bufbg { fill: #E4DCC8; } .buffill { fill: #3C5878; } .flecha { stroke: #B7AC90; }
+  #tip { background: #0A2540; color: #F5F1E8; border-radius: 2px; }
+  input[type=range] { accent-color: #B8441F; }
+"""
+
+
+def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer: int = 8, paso: int = 60,
+                   semilla: int = 2026, oscuro: bool = False):
+    """Simula la jornada en dos escenarios y devuelve (html, motores_actual, motores_mejora).
+    factor = fracción de las paradas de 'mejorar' que se mantiene (0 = sin paradas)."""
+    p, horas_dia, real = cargar_parametros(raiz)
+    if mejorar not in set(p["Etapa"]):
+        raise ValueError(f"No existe la etapa {mejorar}")
+    horizonte = horas_dia * H
+    t0, t1 = horizonte, 2 * horizonte
+    K = piezas_necesarias(p, horizonte)
+    ciclo = p["ciclo_s"].to_numpy()
+    reduccion = round((1 - factor) * 100)
+    nombre_mejora = (f"Sin paradas en {mejorar}" if reduccion == 100
+                     else f"{mejorar} con {reduccion} % menos paradas")
+    escenarios, piezas = {}, []
+    for nombre, quitar in [("Situación actual", None), (nombre_mejora, mejorar)]:
+        rng = np.random.default_rng(semilla)
+        t, paradas = tiempos_servicio(p, K, rng)
+        if quitar:
+            i = int(p.index[p["Etapa"] == quitar][0])
+            t[i] -= paradas[i] * (1 - factor)
+        res = simular(t, buffer, horizonte, guardar=True)
+        escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso)
+        piezas.append(res["piezas"])
+    datos = {
+        "etapas": p["Etapa"].tolist(), "orden": p["Orden"].astype(int).tolist(),
+        "n_par": p["n_par"].astype(int).tolist(), "buffer": buffer, "paso": paso,
+        "real": round(real), "escenarios": escenarios,
+    }
+    plantilla = (Path(__file__).parent / "plantilla_animacion.html").read_text(encoding="utf-8")
+    html = plantilla.replace("/*__DATOS__*/null", json.dumps(datos, ensure_ascii=False, separators=(",", ":")))
+    if oscuro:
+        fuentes = ('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&'
+                   'family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@500&display=swap">')
+        html = html.replace("<title>", fuentes + "<title>", 1).replace("</style>", OSCURO + "</style>", 1)
+    return html, piezas[0], piezas[1]
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--raiz", type=Path, default=Path("."))
+    ap.add_argument("--mejorar", default="PM_2250", help="etapa cuyas paradas se eliminan en el 2.º escenario")
+    ap.add_argument("--buffer", type=int, default=8, help="tamaño de buffer (el calibrado es 8)")
+    ap.add_argument("--paso", type=int, default=60, help="segundos entre fotogramas")
+    ap.add_argument("--semilla", type=int, default=2026)
+    a = ap.parse_args()
+    try:
+        html, base, mejora = construir_html(a.raiz, a.mejorar, buffer=a.buffer, paso=a.paso, semilla=a.semilla)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    print(f"Situación actual: {base} motores · Sin paradas en {a.mejorar}: {mejora} motores")
+    salida = a.raiz / "simulador" / "salidas" / "animacion_linea.html"
+    salida.parent.mkdir(parents=True, exist_ok=True)
+    salida.write_text(html, encoding="utf-8")
+    print(f"Animación guardada en {salida} ({salida.stat().st_size / 1e6:.1f} MB)")
+
+
+if __name__ == "__main__":
+    main()

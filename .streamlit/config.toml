@@ -1,13 +1,18 @@
 [theme]
-base = "dark"
-primaryColor = "#FFFFFF"
-backgroundColor = "#121212"
-secondaryBackgroundColor = "#1b1b1b"
-textColor = "#F5F5F5"
-font = "sans-serif"
+base = "light"
+primaryColor = "#B8441F"
+backgroundColor = "#F5F1E8"
+secondaryBackgroundColor = "#EBE5D3"
+textColor = "#0A2540"
+linkColor = "#B8441F"
+borderColor = "#C9BFA3"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "IBM Plex Serif:https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&display=swap"
+codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
 baseFontSize = 16
-baseRadius = "medium"
+baseRadius = "small"
+showWidgetBorder = true
 
 [theme.sidebar]
-backgroundColor = "#1b1b1b"
-secondaryBackgroundColor = "#2b2b2b"
+backgroundColor = "#EBE5D3"
+secondaryBackgroundColor = "#F5F1E8"
