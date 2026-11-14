@@ -11,6 +11,7 @@ Uso:  python -m pytest tests/test_chat_herramientas.py     (o  python tests/test
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,8 +21,8 @@ import pandas as pd
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from chat.herramientas import (HerramientasLinea, TOOLS, firma_llamadas, preguntar,  # noqa: E402
-                               verificar_cifras)
+from chat.herramientas import (HerramientasLinea, TOOLS, _consulta_directa,  # noqa: E402
+                               firma_llamadas, preguntar, responder, verificar_cifras)
 from lossia import config as C, interfaz as LI  # noqa: E402
 
 H = HerramientasLinea()
@@ -138,8 +139,10 @@ def test_verificador_de_cifras():
     resultados = [H.kpis_etapa("ST2390")]
     assert verificar_cifras("ST-2390 tiene una disponibilidad del 77,5 %.", "?", resultados) == []
     assert verificar_cifras("ST-2390 tiene una disponibilidad del 64,0 %.", "?", resultados) == ["64,0"]
-    # los nombres de etapa y los días no cuentan como cifras
-    assert verificar_cifras("ST_2375+ST_2376 el 2026-S40-D2", "?", []) == []
+    # los nombres de etapa y los días no cuentan como cifras, pero deben existir en las fuentes
+    assert verificar_cifras("ST_2375+ST_2376 el 2026-S40-D2", "?", [H.kpis_etapa("ST2375")]) == []
+    assert verificar_cifras("ST_2375+ST_2376 el 2026-S40-D2", "?", []) == \
+        ["ST_2375+ST_2376", "2026-S40-D2"]
 
 
 def test_firma_llamadas_normaliza_nombres():
@@ -181,26 +184,159 @@ def test_bucle_preguntar_con_modelo_simulado():
     assert cliente.peticiones[1]["messages"][-1]["role"] == "tool"
 
 
-def test_consulta_directa_envia_los_datos_en_una_llamada():
-    cliente = _ClienteSimulado()
-
-    def redactar(**peticion):
-        cliente.peticiones.append(peticion)
-        mensaje = SimpleNamespace(content="La disponibilidad propia es 77,5 %.")
+def _cliente_que_responde(texto, peticiones):
+    def crear(**peticion):
+        peticiones.append(peticion)
+        mensaje = SimpleNamespace(content=texto, tool_calls=None)
         return SimpleNamespace(choices=[SimpleNamespace(message=mensaje)],
                                usage=SimpleNamespace(completion_tokens=10))
+    return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=crear)))
 
-    cliente.chat.completions.create = redactar
+
+def test_consulta_directa_adelanta_datos_en_una_llamada_y_mantiene_herramientas():
+    peticiones = []
+    cliente = _cliente_que_responde("La disponibilidad propia de ST-2390 es 77,5 %.", peticiones)
     historial = [{"role": "assistant", "content": "¿Qué indicador quieres consultar?"}]
     respuesta, llamadas, resultados, tokens = preguntar(
         cliente, "simulado", H, "¿Qué disponibilidad propia tiene ST-2390?", historial=historial,
     )
-    peticion, = cliente.peticiones
-    assert "tools" not in peticion and peticion["messages"][1] == historial[0]
-    assert json.loads(peticion["messages"][-1]["content"])["resultados"] == resultados
+    peticion, = peticiones                       # una sola petición al modelo
+    mensajes = peticion["messages"]
+    assert peticion["tools"] == TOOLS            # el modelo puede pedir más datos si le faltan
+    assert mensajes[1] == historial[0]
+    llamada, = mensajes[-2]["tool_calls"]
+    assert llamada["function"]["name"] == "kpis_etapa"
+    assert re.fullmatch(r"[A-Za-z0-9]{9}", llamada["id"])   # formato que exige Mistral
+    assert mensajes[-1]["role"] == "tool" and json.loads(mensajes[-1]["content"]) == resultados[0]
     assert llamadas == [("kpis_etapa", {"nombre": "ST-2390"})]
     assert resultados[0]["disponibilidad_pct"] == 77.5
     assert "77,5 %" in respuesta and tokens == 10
+    assert 0 < peticion["timeout"] <= 180
+
+
+# ---------- problemas detectados en la auditoría ----------
+def test_verificador_exige_la_cifra_de_la_etapa_nombrada():
+    r = [H.kpis_etapa("ST2390"), H.kpis_etapa("ST0260")]
+    assert verificar_cifras("ST_2390 95,7 % / ST_0260 77,5 %", "?", r) == ["95,7", "77,5"]
+    assert verificar_cifras("ST_2390 tiene un 95,7 % y ST_0260 un 77,5 %.", "?", r) != []
+    assert verificar_cifras("La disponibilidad de ST_2390 es 77,5 % y la de ST_0260 es 95,7 %.",
+                            "?", r) == []
+    assert verificar_cifras("77,5 % en ST_2390.", "?", r) == []
+    assert verificar_cifras("ST_2390 no cumple: 77,5 % frente al objetivo del 90 %.", "?", r) == []
+    # operaciones en paralelo: la cifra de la etapa agrupada vale citando una de sus operaciones
+    assert verificar_cifras("ST_2375 tiene 96,3 % de disponibilidad.", "?",
+                            [H.kpis_etapa("ST2375")]) == []
+    # zona de un cuello: las etapas citadas como límites no le roban la cifra al cuello
+    assert verificar_cifras("ST_0260 afecta desde ST_0259 hasta ST_0295 con 368,5 h inducidas.",
+                            "?", [H.cuello_botella()]) == []
+
+
+def test_verificador_redondeo_pregunta_formatos_e_identificadores():
+    assert verificar_cifras("Abre 23 h.", "?", [{"h": 22.0}]) == ["23"]
+    assert verificar_cifras("ST_2390 para 4 h al día.", "?", [H.kpis_etapa("ST2390")]) == []
+    assert verificar_cifras("Tiene 95,7 %.", "¿Tiene ST_2390 un 95,7 %?", []) == ["95,7"]
+    assert verificar_cifras("Las 3 primeras son ST_0260, ST_0261 y PM_2020.", "¿Qué 3?",
+                            [H.prioridades(3)]) == []
+    assert verificar_cifras("Hizo 1.234 piezas.", "?", [{"npr": 1234}]) == []
+    assert verificar_cifras("ST_2390 hizo 24.484 piezas.", "?", [H.kpis_etapa("ST2390")]) == []
+    assert verificar_cifras("Paró 22h.", "?", []) == ["22"]
+    assert verificar_cifras("ST_9999 el 2099-S99-D9", "?", [H.kpis_etapa("ST2390")]) == \
+        ["ST_9999", "2099-S99-D9"]
+    assert verificar_cifras("ST_2390 desde 2026-S40-D2", "?", [H.kpis_etapa("ST2390")]) == []
+
+
+def test_verificador_liga_cifra_a_etapa_indicador_y_unidad():
+    """Casos reproducidos en la segunda auditoría."""
+    a, b = H.kpis_etapa("ST2390"), H.kpis_etapa("ST0260")
+    # 59,0 es el tiempo de ciclo (cmin) de ST_2390, no su disponibilidad (77,5 %)
+    assert verificar_cifras("ST_2390 tiene una disponibilidad del 59,0 %.", "?", [a]) == ["59,0"]
+    assert verificar_cifras("El tiempo de ciclo de ST_2390 es 59,0 cmin.", "?", [a]) == []
+    assert verificar_cifras("ST_2390 tiene 77,5 % de disponibilidad y un tiempo de ciclo de "
+                            "59,0 cmin.", "?", [a]) == []
+    assert verificar_cifras("ST_2390 tiene 59,0 % de disponibilidad y un tiempo de ciclo de "
+                            "77,5 cmin.", "?", [a]) == ["59,0", "77,5"]
+    # intercambio entre máquinas y comparación correcta
+    assert verificar_cifras("ST_2390 95,7 % / ST_0260 77,5 %", "?", [a, b]) == ["95,7", "77,5"]
+    assert verificar_cifras("La disponibilidad de ST_2390 es 77,5 % y la de ST_0260 es 95,7 %, "
+                            "por encima del objetivo del 90 %.", "?", [a, b]) == []
+    # otras unidades e indicadores
+    assert verificar_cifras("ST_2390 se para 4,4 h al día (parada propia).", "?", [a]) == []
+    assert verificar_cifras("Su Fpm es de 393,3 paros por cada 1000 piezas.", "?", [a]) == []
+    assert verificar_cifras("ST_2390 hace 59,0 paros por cada 1000 piezas.", "?", [a]) == ["59,0"]
+    assert verificar_cifras("ST_2390 registró 9.630 paradas propias.", "?", [a]) == []
+    # una lista numerada no confunde el número de viñeta con un dato
+    p = [H.prioridades(3)]
+    assert verificar_cifras("1. ST_0260: severidad 39,3 %.\n2. ST_0261: severidad 18,0 %.",
+                            "?", p) == []
+    assert verificar_cifras("1. ST_0260: severidad 18,0 %.", "?", p) == ["18,0"]
+
+
+def test_nombre_no_confirmado_solo_vale_para_negarlo():
+    no_existe = H.kpis_etapa("ST_9999")
+    assert "error" in no_existe
+    assert verificar_cifras("ST_9999 existe.", "¿Existe ST_9999?", [no_existe]) == ["ST_9999"]
+    assert verificar_cifras("No existe ninguna máquina ST_9999 en la línea.", "¿Existe ST_9999?",
+                            [no_existe]) == []
+    assert verificar_cifras("ST_9999 tiene un 80 % de disponibilidad.", "¿Y ST_9999?", []) == \
+        ["80", "ST_9999"]
+
+
+def test_respuesta_sin_herramientas_no_queda_verificada():
+    peticiones = []
+    cliente = _cliente_que_responde("La disponibilidad es del 85 %.", peticiones)
+    salida = responder(cliente, "simulado", H, "¿Qué tal va la línea en general?")
+    assert salida["sin_datos"] is True and salida["verificada"] is False
+    assert salida["cifras_no_verificadas"] == ["85"]
+
+
+def test_preguntas_compuestas_no_se_adelantan():
+    assert _consulta_directa("¿Qué tres máquinas penalizan más por baja disponibilidad?", H) == []
+    assert _consulta_directa("¿Qué es la disponibilidad y qué disponibilidad tiene ST_2390?", H) == []
+    assert _consulta_directa("¿Qué 3 máquinas penalizan más la línea?", H) == \
+        [("prioridades", {"n": 3})]
+
+
+def test_argumentos_fuera_de_rango_no_rompen_el_bucle():
+    for n in (1e999, float("nan"), 0, 21, True, "3", None):
+        assert "error" in H.ejecutar("prioridades", {"n": n}), n
+    assert "error" in H.ejecutar("kpis_etapa", ["ST2390"])
+    assert H.ejecutar("prioridades", {"n": 3.0})["etapas"]
+
+    llamadas_hechas = []
+
+    def crear(**peticion):
+        llamadas_hechas.append(peticion)
+        if len(llamadas_hechas) == 1:
+            llamada = SimpleNamespace(id="abc123def", function=SimpleNamespace(
+                name="prioridades", arguments='{"n": 1e999}'))
+            mensaje = SimpleNamespace(content=None, tool_calls=[llamada])
+        else:
+            mensaje = SimpleNamespace(content="No he podido consultar el ranking.", tool_calls=None)
+        return SimpleNamespace(choices=[SimpleNamespace(message=mensaje)], usage=None)
+
+    cliente = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=crear)))
+    respuesta, _, resultados, _ = preguntar(cliente, "simulado", H, "Dame el ranking, porfa")
+    assert "error" in resultados[0] and respuesta
+
+
+def test_seleccion_vacia_no_pasa_al_periodo_global():
+    h = HerramientasLinea(motor=H.motor).fijar_dias([])
+    assert h.sin_dias
+    for nombre, args in [("resumen_linea", {}), ("kpis_etapa", {"nombre": "ST2390"}),
+                         ("prioridades", {"n": 3})]:
+        assert "ningún día" in h.ejecutar(nombre, args)["error"]
+    assert "definicion" in h.ejecutar("glosario", {"termino": "TAI"})
+    assert h.fijar_dias(None).ejecutar("resumen_linea", {})["etapas_analizadas"] == 84
+
+
+def test_plazo_total_de_la_pregunta():
+    cliente = _cliente_que_responde("Hola", [])
+    try:
+        preguntar(cliente, "simulado", H, "Hola", plazo_s=0)
+    except TimeoutError:
+        pass
+    else:
+        raise AssertionError("debería agotar el plazo")
 
 
 def test_esquema_de_herramientas():

@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
 ORIGEN = REPO / "03_llm_kaggle.ipynb"
 DESTINO = REPO / "04_demo_remota.ipynb"
 ULTIMA_CELDA = "## Servir el modelo"
@@ -59,6 +61,22 @@ except Exception as error:
 print("Clave cargada desde Kaggle Secrets (no se muestra).")
 """)
 
+def celda_comprobacion():
+    """Celda autónoma (no importa nada del repo) que dice qué falta en el dataset."""
+    from chat.kaggle_remoto import NECESARIOS  # se incrusta el valor, el notebook no lo importa
+    return celda("code", f"""
+# Comprobar que el dataset de la línea trae todo lo necesario ANTES de cargar el modelo.
+NECESARIOS = {NECESARIOS!r}
+requeridos = NECESARIOS["base"] + (NECESARIOS["app"] if MODO == "app" else [])
+pendientes = [r for r in requeridos if not (repo_dir / r).is_file()]
+if pendientes:
+    raise RuntimeError(
+        "Al dataset de la línea le faltan estos archivos del repo: " + ", ".join(pendientes)
+        + ". Vuelve a publicarlo con: py -3.13 chat/preparar_dataset_kaggle.py --id <usuario/dataset>")
+print(f"Dataset completo para el modo {{MODO!r}} ({{len(requeridos)}} archivos comprobados).")
+""")
+
+
 REMOTO_MD = celda("markdown", """
 ## Abrir el túnel
 
@@ -74,11 +92,13 @@ entorno_llm = {"LLM_BASE_URL": LLM_BASE_URL, "LLM_MODEL": LLM_MODEL, "LLM_API_KE
 if MODO == "app":
     app_dir = preparar_app(repo_dir)
     proceso_app = lanzar_streamlit(app_dir, puerto=8501, entorno_llm=entorno_llm)
-    proceso_tunel, url_publica = abrir_tunel(8501)
+    proceso_tunel, url_publica = abrir_tunel(8501, ruta_salud="/_stcore/health")
     print("Abre la página en:", url_publica)
-    print("Aviso: cualquiera con esta URL puede ver el dashboard mientras dure la sesión.")
+    print("Aviso: la página no tiene login. Cualquiera con esta URL puede ver el dashboard y "
+          "descargar sus datos (botón «Descargar CSV») mientras dure la sesión. "
+          "No compartas la URL fuera del jurado.")
 elif MODO == "modelo":
-    proceso_tunel, url_publica = abrir_tunel(8080)
+    proceso_tunel, url_publica = abrir_tunel(8080, ruta_salud="/health")
     print("Configura la app externa (variables de entorno o st.secrets):")
     print(f'  LLM_BASE_URL = "{url_publica}/v1"')
     print(f'  LLM_MODEL    = "{LLM_MODEL}"')
@@ -90,29 +110,25 @@ else:
 VIVO_MD = celda("markdown", """
 ## Mantener la sesión activa
 
-Deja esta celda ejecutándose durante la demo: comprueba cada 5 minutos que el modelo y el túnel
-siguen vivos. Para pararla, interrumpe la celda; los servidores siguen hasta cerrar la sesión.
+Deja esta celda ejecutándose durante la demo. Cada 5 minutos comprueba de extremo a extremo, con
+la clave, que el modelo responde en local y a través del túnel; en modo `app`, además, que la
+página publicada devuelve el dashboard. Para pararla, interrumpe la celda; los servidores siguen
+hasta cerrar la sesión.
 """)
 
 VIVO = celda("code", """
 import time
-import urllib.request
-
-def vivo(url, cabeceras=None):
-    try:
-        peticion = urllib.request.Request(url, headers=cabeceras or {})
-        with urllib.request.urlopen(peticion, timeout=10) as r:
-            return r.status == 200
-    except OSError:
-        return False
+from chat.kaggle_remoto import estado_demo
 
 inicio = time.monotonic()
 while time.monotonic() - inicio < 11.5 * 3600:
-    modelo_ok = vivo(LLM_BASE_URL.removesuffix("/v1") + "/health")
-    tunel_ok = proceso_tunel.poll() is None and vivo(
-        url_publica + ("/_stcore/health" if MODO == "app" else "/health"))
-    print(time.strftime("%H:%M"), "· modelo", "OK" if modelo_ok else "CAÍDO",
-          "· túnel", "OK" if tunel_ok else "CAÍDO", flush=True)
+    estado = estado_demo(MODO, url_publica, LLM_BASE_URL, clave)
+    estado["proceso_tunel"] = proceso_tunel.poll() is None
+    if MODO == "app":
+        estado["proceso_app"] = proceso_app.poll() is None
+    caidos = [k for k, v in estado.items() if k != "ok" and not v]
+    print(time.strftime("%H:%M"), "· OK" if not caidos else "· CAÍDO: " + ", ".join(caidos),
+          flush=True)
     time.sleep(300)
 """)
 
@@ -126,6 +142,10 @@ def main():
     for c in base:
         if c["cell_type"] == "code":
             c["outputs"], c["execution_count"] = [], None
+    # la comprobación va justo después de la celda que define repo_dir, antes de cargar el modelo
+    primera_codigo = next(i for i, c in enumerate(base) if c["cell_type"] == "code")
+    assert "repo_dir" in "".join(base[primera_codigo]["source"]), "03 ya no define repo_dir ahí"
+    base.insert(primera_codigo + 1, celda_comprobacion())
     nb = dict(origen)
     nb["cells"] = [INTRO, SECRETO, *base, REMOTO_MD, REMOTO, VIVO_MD, VIVO]
     DESTINO.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

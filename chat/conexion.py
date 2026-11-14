@@ -72,6 +72,17 @@ def _leer(nombre, secretos=None):
     return None
 
 
+def _segundos(valor, por_defecto, minimo=1.0, maximo=600.0):
+    """Timeout en segundos; un valor vacío o no numérico usa el de por defecto."""
+    try:
+        segundos = float(valor)
+    except (TypeError, ValueError):
+        return por_defecto
+    if segundos != segundos:  # NaN
+        return por_defecto
+    return min(max(segundos, minimo), maximo)
+
+
 def _normalizar_url(url):
     url = url.rstrip("/")
     return url if url.endswith("/v1") else url + "/v1"
@@ -79,7 +90,7 @@ def _normalizar_url(url):
 
 def configuraciones(secretos=None) -> list[ConfigLLM]:
     """Servidores configurados, en orden de preferencia. `secretos` puede ser `st.secrets`."""
-    timeout = float(_leer("LLM_TIMEOUT", secretos) or 120)
+    timeout = _segundos(_leer("LLM_TIMEOUT", secretos), por_defecto=120.0)
     salida = []
     for prefijo, nombre in (("LLM_", "principal"), ("LLM_FALLBACK_", "plan B")):
         url, modelo, clave = (_leer(prefijo + c, secretos) for c in CLAVES)
@@ -107,8 +118,15 @@ def comprobar(config: ConfigLLM, timeout: float = 8.0) -> EstadoLLM:
         return EstadoLLM(False, f"Servidor {config.nombre} no disponible ({config.base_url}). "
                                 "Si es Kaggle, puede que la sesión o el túnel hayan caducado.", config)
     latencia = (time.perf_counter() - inicio) * 1000
-    modelos = [m.get("id") for m in datos.get("data", []) if isinstance(m, dict)]
-    if modelos and config.modelo not in modelos:
+    lista = datos.get("data") if isinstance(datos, dict) else None
+    if not isinstance(lista, list):
+        return EstadoLLM(False, f"Servidor {config.nombre}: respuesta inesperada en /models; "
+                                "no parece un servidor compatible con OpenAI.", config, latencia)
+    modelos = [m.get("id") for m in lista if isinstance(m, dict) and isinstance(m.get("id"), str)]
+    if not modelos:
+        return EstadoLLM(False, f"Servidor {config.nombre}: no informa de ningún modelo cargado.",
+                         config, latencia)
+    if config.modelo not in modelos:
         return EstadoLLM(False, f"Servidor {config.nombre}: no sirve el modelo «{config.modelo}» "
                                 f"(disponibles: {', '.join(modelos)}).", config, latencia)
     return EstadoLLM(True, f"Conectado al servidor {config.nombre} ({config.modelo}).", config,
