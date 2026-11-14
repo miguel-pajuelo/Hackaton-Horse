@@ -958,7 +958,8 @@ def etapas_simulador(raiz):
 def simulacion_html(raiz, mejorar, factor, buffer, version=None):
     # version: fecha de modificación del simulador y su plantilla, para no servir HTML antiguo de la caché
     import animacion_linea as AL
-    return AL.construir_html(Path(raiz), mejorar, factor=factor, buffer=buffer, oscuro=True)
+    # mejorar: tupla de (etapa, reducción %) para que cada etapa tenga su propia mejora
+    return AL.construir_html(Path(raiz), {e: 1 - r / 100 for e, r in mejorar}, buffer=buffer, oscuro=True)
 
 
 PUENTE_BUFFER_JS = """
@@ -1053,21 +1054,31 @@ def simulacion():
                "paradas con la frecuencia y duración reales; las paradas se propagan solas a las vecinas. "
                "Compara una jornada actual con otra en la que se mejora una etapa.")
     with st.container(key="sim_controles", horizontal=True, vertical_alignment="bottom", gap="medium"):
-        mejorar = st.selectbox("Etapa a mejorar", etapas, key="sim_etapa",
-                               index=etapas.index("PM_2250") if "PM_2250" in etapas else 0)
-        reduccion = st.slider("Reducción de sus paradas", 10, 100, 100, step=10, format="%d %%", key="sim_red")
+        mejorar = st.multiselect("Etapas a mejorar", etapas, key="sim_etapas",
+                                 default=["PM_2250"] if "PM_2250" in etapas else etapas[:1],
+                                 placeholder="Elige una o varias etapas")
         buffer = st.number_input("Piezas entre etapas (buffer)", 0, 30, 8, key="sim_buffer",
                                  help="Tamaño general de todos los tramos. 8 es el valor calibrado con "
                                       "la producción real. Puedes cambiar tramos concretos en «Por tramo».")
         buffers = buffers_por_tramo(etapas, int(buffer))
+    reducciones = []
+    if mejorar:
+        with st.container(key="sim_reducciones", horizontal=True, gap="medium"):
+            for etapa in mejorar:
+                r = st.slider(f"Reducción de paradas · {etapa}", 10, 100, 100, step=10, format="%d %%",
+                              key=f"sim_red_{etapa}")
+                reducciones.append((etapa, r))
+    else:
+        st.caption("Elige una o varias etapas en «Etapas a mejorar» para compararlas con la situación actual.")
     with st.spinner("Simulando la jornada…"):
         version_sim = tuple((REPO / "simulador" / f).stat().st_mtime_ns
                             for f in ("plantilla_animacion.html", "animacion_linea.py", "simulador_linea.py"))
-        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, buffers, version_sim)
+        html, base, mejora = simulacion_html(str(REPO), tuple(reducciones), 0.0, buffers, version_sim)
     with st.container(key="sim_kpis", horizontal=True, gap="medium"):
         st.metric("Producción real media", f"{real:,.0f}".replace(",", "."))
         st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."))
-        st.metric(f"Simulada · mejorando {mejorar}", f"{mejora:,}".replace(",", "."),
+        quien = (mejorar[0] if len(mejorar) == 1 else f"{len(mejorar)} etapas") if mejorar else "nada"
+        st.metric(f"Simulada · mejorando {quien}", f"{mejora:,}".replace(",", "."),
                   delta=f"{mejora - base:+d} motores/día")
     components.html(html, height=900, scrolling=False)
 

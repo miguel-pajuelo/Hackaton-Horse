@@ -889,3 +889,5 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .motivo-bloque + .motivo-bloque { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--lossia-edge-soft); }
 .motivo-etiqueta { display: block; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; font-weight: 600; color: var(--lossia-accent); margin-bottom: 4px; }
 .motivo-texto { margin: 0; color: var(--lossia-ink); line-height: 1.5; }
+.st-key-sim_reducciones { flex-wrap: wrap !important; margin-top: -1px; padding: 14px 18px; background: var(--lossia-panel); border: 1px solid var(--lossia-edge); border-radius: 2px; }
+.st-key-sim_reducciones > * { flex: 1 1 260px !important; min-width: 220px; max-width: 420px; }
