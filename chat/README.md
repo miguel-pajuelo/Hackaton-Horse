@@ -6,11 +6,13 @@
 2. Selecciona **GPU T4 ×2** y habilita Internet para instalar llama.cpp. Añade como entradas [el dataset privado de la línea](https://www.kaggle.com/datasets/miguelpajuelo/horse-lossia-linea-5-datos-limpios) y [los pesos privados Q8_0](https://www.kaggle.com/datasets/miguelpajuelo/horse-mistral-small-32-24b-q8).
    El dataset de la línea debe contener estas carpetas del repo, con su estructura: `lossia/`, `chat/`, `Datos_limpios/` y `Resultados/`. El notebook localiza el repo por `lossia/interfaz.py` e importa `chat/herramientas.py`.
 3. Ejecuta las celdas en orden. El servidor se inicia en `http://127.0.0.1:8080/v1` con CUDA, contexto de 16.384 tokens, una secuencia y temperatura 0,15 en el cliente. El notebook valida el hash de los pesos antes de cargarlo.
-4. La prueba guarda `Datos_modelo/llm_benchmark.csv` en la salida de Kaggle. La columna de juicio preliminar ayuda a localizar las tres respuestas que requieren revisión semántica.
+4. La prueba guarda `Datos_modelo/llm_benchmark.csv` y `Datos_modelo/llm_validacion_prompt.csv` en la salida de Kaggle. Revisa las respuestas contra sus fuentes para comprobar también el significado y las unidades.
 
 ## Herramientas
 
 Las cifras salen del motor oficial (`lossia.interfaz.cargar_motor` y `calcular`), el mismo que usa el dashboard: misma unidad de análisis por etapa (operaciones en paralelo fusionadas), mismas prioridades y mismo método de flechas. El modelo no calcula nada.
+
+Para las consultas reconocibles, Python ejecuta las funciones del motor y pasa sus resultados al modelo en una sola petición, sin adjuntar el catálogo de herramientas. Si la consulta es ambigua o depende de la conversación anterior, el cliente permite que el modelo pida las herramientas necesarias. El CSV registra las funciones ejecutadas en ambos casos.
 
 | Herramienta | Devuelve |
 |---|---|

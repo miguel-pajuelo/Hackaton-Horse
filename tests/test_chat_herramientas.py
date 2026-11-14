@@ -172,12 +172,35 @@ class _ClienteSimulado:
 
 def test_bucle_preguntar_con_modelo_simulado():
     cliente = _ClienteSimulado()
-    respuesta, llamadas, resultados, tokens = preguntar(cliente, "simulado", H, "¿Dp de ST-2390?")
+    pregunta = "¿Y cuánto marca esa etapa?"
+    respuesta, llamadas, resultados, tokens = preguntar(cliente, "simulado", H, pregunta)
     assert llamadas == [("kpis_etapa", {"nombre": "ST-2390"})]
     assert "77.5" in respuesta and tokens == 20
-    assert verificar_cifras(respuesta, "¿Dp de ST-2390?", resultados) == []
+    assert verificar_cifras(respuesta, pregunta, resultados) == []
     assert cliente.peticiones[0]["tools"] == TOOLS
     assert cliente.peticiones[1]["messages"][-1]["role"] == "tool"
+
+
+def test_consulta_directa_envia_los_datos_en_una_llamada():
+    cliente = _ClienteSimulado()
+
+    def redactar(**peticion):
+        cliente.peticiones.append(peticion)
+        mensaje = SimpleNamespace(content="La disponibilidad propia es 77,5 %.")
+        return SimpleNamespace(choices=[SimpleNamespace(message=mensaje)],
+                               usage=SimpleNamespace(completion_tokens=10))
+
+    cliente.chat.completions.create = redactar
+    historial = [{"role": "assistant", "content": "¿Qué indicador quieres consultar?"}]
+    respuesta, llamadas, resultados, tokens = preguntar(
+        cliente, "simulado", H, "¿Qué disponibilidad propia tiene ST-2390?", historial=historial,
+    )
+    peticion, = cliente.peticiones
+    assert "tools" not in peticion and peticion["messages"][1] == historial[0]
+    assert json.loads(peticion["messages"][-1]["content"])["resultados"] == resultados
+    assert llamadas == [("kpis_etapa", {"nombre": "ST-2390"})]
+    assert resultados[0]["disponibilidad_pct"] == 77.5
+    assert "77,5 %" in respuesta and tokens == 10
 
 
 def test_esquema_de_herramientas():
