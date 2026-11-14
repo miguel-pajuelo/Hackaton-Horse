@@ -788,8 +788,14 @@ def _sello(m):
             st.json(m["resultados"], expanded=False)
 
 
-SUGERENCIAS_CHAT = ["Resume las principales incidencias", "Detecta patrones en las paradas",
-                    "Propón acciones de mejora"]
+# (pregunta que se envía, descripción que sale en el tooltip)
+SUGERENCIAS_CHAT = [
+    ("¿Qué máquina frena más la línea?", "Identifica el cuello de botella principal."),
+    ("¿A qué máquina mando primero a mantenimiento?",
+     "Consulta el ranking de paradas propias y avisa si los datos son dudosos."),
+    ("¿Qué disponibilidad propia tiene ST-2390?", "Da una cifra concreta para el periodo seleccionado."),
+    ("¿Qué es la parada inducida?", "Explica un concepto que puede resultar poco familiar."),
+]
 
 
 def _responder_chat(pregunta, mensajes, motor, resultado, dias_sel, estado):
@@ -833,17 +839,17 @@ def chat_ia(motor, resultado, dias_sel):
         clave = f"{centro_activo}|{linea_activa}|{','.join(dias_sel or [])}"
         mensajes = st.session_state.setdefault("chat_historiales", {}).setdefault(clave, [])
         with st.container(key="chat_panel"):
+            estado = estado_llm()
             with st.container(key="chat_cabecera", horizontal=True, vertical_alignment="center"):
-                st.html('<div class="chat-titulo"><span class="chat-chispa">✦</span>KAIROS</div>')
+                st.html('<div class="chat-titulo"><span class="chat-chispa">✦</span>'
+                    '<span class="chat-nombre">KAIROS<span class="chat-modelo">Mistral 24B</span></span></div>')
+                # el estado de la conexión va en el tooltip del botón de refresco
+                st.button("", icon=":material/refresh:", type="tertiary", key="chat_reconectar",
+                          on_click=lambda: st.session_state.pop("llm_estado", None),
+                          help=(f"{estado.mensaje} Pulsa para comprobar la conexión." if estado.ok
+                                else "Modelo no conectado. Pulsa para comprobar la conexión."))
                 st.button("", icon=":material/close:", type="tertiary", key="chat_cerrar",
                           on_click=alternar_chat, help="Cerrar")
-            st.html('<p class="chat-sub">Analiza los datos de la línea, detecta patrones '
-                    'o responde a tus preguntas.</p>')
-            estado = estado_llm()
-            with st.container(key="chat_estado", horizontal=True, vertical_alignment="center", gap="small"):
-                st.caption(f":green[●] {estado.mensaje}" if estado.ok else "○ Modelo no conectado")
-                st.button("Comprobar conexión", key="chat_reconectar", type="tertiary", icon=":material/refresh:",
-                          on_click=lambda: st.session_state.pop("llm_estado", None))
             if mensajes:
                 with st.container(key="chat_mensajes", height=240):
                     for m in mensajes:
@@ -852,12 +858,13 @@ def chat_ia(motor, resultado, dias_sel):
                                 st.markdown(m["content"])
                             else:
                                 _sello(m)
-            else:
-                st.html('<div class="chat-seccion">Sugerencias</div>')
-                for i, s in enumerate(SUGERENCIAS_CHAT):
-                    st.button(s, icon=":material/trending_up:", key=f"chat_sug_{i}", width="stretch",
-                              on_click=lambda t=s: st.session_state.update(chat_sugerida=t))
-            entrada = st.chat_input("Escribe un mensaje...", key="chat_texto", accept_file=True)
+            with st.container(key="chat_pie"):   # sugerencias y entrada, pegadas al fondo del panel
+                if not mensajes:
+                    st.html('<div class="chat-seccion">Sugerencias</div>')
+                    for i, (s, ayuda) in enumerate(SUGERENCIAS_CHAT):
+                        st.button(s, icon=":material/trending_up:", key=f"chat_sug_{i}", width="stretch",
+                                  help=ayuda, on_click=lambda t=s: st.session_state.update(chat_sugerida=t))
+                entrada = st.chat_input("Escribe un mensaje...", key="chat_texto", accept_file=True)
             texto = (entrada.text if hasattr(entrada, "text") else entrada) if entrada else None
             pregunta = texto or st.session_state.pop("chat_sugerida", None)
             if pregunta:
