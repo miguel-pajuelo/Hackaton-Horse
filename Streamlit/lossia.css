@@ -905,3 +905,6 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .motivo-texto { margin: 0; color: var(--lossia-ink); line-height: 1.5; }
 .st-key-sim_reducciones { flex-wrap: wrap !important; margin-top: -1px; padding: 14px 18px; background: var(--lossia-panel); border: 1px solid var(--lossia-edge); border-radius: 2px; }
 .st-key-sim_reducciones > * { flex: 1 1 260px !important; min-width: 220px; max-width: 420px; }
+/* Visualizaciones en cuadrícula 2 × 2 */
+.st-key-tarjetas { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; max-width: 1100px; gap: 18px !important; }
+.st-key-tarjetas button { min-height: clamp(220px, 18vw, 290px) !important; }

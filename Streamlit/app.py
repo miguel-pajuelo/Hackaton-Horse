@@ -49,7 +49,6 @@ MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "
 PRESETS = {"7 días": 6, "Todo": None}
 VISTAS = {
     "reparto": ("Reparto", "Reparto del tiempo"),
-    "criticidad": ("Penalizantes", "Mapa de criticidad"),
     "ranking": ("Penalizantes", "Top penalizantes"),
     "paradas": ("Penalizantes", "Parada propia vs. inducida"),
     "disponibilidad": ("Objetivos", "Disponibilidad por etapa"),
@@ -58,7 +57,6 @@ VISTAS = {
 }
 ACCESOS = {
     "reparto": "Reparto del tiempo",
-    "criticidad": "Mapa de criticidad",
     "ranking": "Top penalizantes",
     "disponibilidad": "Evolución de objetivos",
     "paradas": "Parada propia vs. inducida",
@@ -1130,6 +1128,8 @@ INFORME = DIR_LIMPIOS / "informe_limpieza.txt"
 vista = st.session_state.get("vista", "inicio")
 if vista == "pregunta":   # la antigua pestaña del chat ahora es el chat flotante
     st.session_state.vista = vista = "inicio"
+if vista == "criticidad":   # el mapa de criticidad se ha quitado
+    st.session_state.vista = vista = "visualizaciones"
 if vista == "inicio":
     nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
 else:
