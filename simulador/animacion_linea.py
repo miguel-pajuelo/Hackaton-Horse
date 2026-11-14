@@ -84,27 +84,41 @@ OSCURO = """
 """
 
 
-def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer=8, paso: int = 60,
+def construir_html(raiz: Path, mejorar, factor: float = 0.0, buffer=8, paso: int = 60,
                    semilla: int = 2026, oscuro: bool = False):
     """Simula la jornada en dos escenarios y devuelve (html, motores_actual, motores_mejora).
-    factor = fracción de las paradas de 'mejorar' que se mantiene (0 = sin paradas)."""
+    mejorar: una etapa, una lista de etapas o un dict {etapa: factor} para mejorar cada una
+    en distinta medida. factor = fracción de las paradas que se mantiene (0 = sin paradas)."""
     p, horas_dia, real = cargar_parametros(raiz)
-    if mejorar not in set(p["Etapa"]):
-        raise ValueError(f"No existe la etapa {mejorar}")
+    if isinstance(mejorar, dict):
+        factores = {e: float(f) for e, f in mejorar.items()}
+    else:
+        factores = {e: factor for e in ([mejorar] if isinstance(mejorar, str) else list(mejorar or []))}
+    mejorar = list(factores)
+    desconocidas = [e for e in mejorar if e not in set(p["Etapa"])]
+    if desconocidas:
+        raise ValueError(f"No existe la etapa {', '.join(desconocidas)}")
     horizonte = horas_dia * H
     t0, t1 = horizonte, 2 * horizonte
     K = piezas_necesarias(p, horizonte)
     ciclo = p["ciclo_s"].to_numpy()
-    reduccion = round((1 - factor) * 100)
-    nombre_mejora = (f"Sin paradas en {mejorar}" if reduccion == 100
-                     else f"{mejorar} con {reduccion} % menos paradas")
+    reducciones = {round((1 - f) * 100) for f in factores.values()}
+    quien = mejorar[0] if len(mejorar) == 1 else f"{len(mejorar)} etapas"
+    if not mejorar:
+        nombre_mejora = "Sin mejoras"
+    elif reducciones == {100}:
+        nombre_mejora = f"Sin paradas en {quien}"
+    elif len(reducciones) == 1:
+        nombre_mejora = f"{quien} con {reducciones.pop()} % menos paradas"
+    else:
+        nombre_mejora = f"{quien} mejoradas"
     escenarios, piezas = {}, []
     for nombre, quitar in [("Situación actual", None), (nombre_mejora, mejorar)]:
         rng = np.random.default_rng(semilla)
         t, paradas = tiempos_servicio(p, K, rng)
-        if quitar:
-            i = int(p.index[p["Etapa"] == quitar][0])
-            t[i] -= paradas[i] * (1 - factor)
+        for etapa in (quitar or []):
+            i = int(p.index[p["Etapa"] == etapa][0])
+            t[i] -= paradas[i] * (1 - factores[etapa])
         res = simular(t, buffer, horizonte, guardar=True)
         escenarios[nombre] = estados(p, res, ciclo, t0, t1, paso)
         piezas.append(res["piezas"])
