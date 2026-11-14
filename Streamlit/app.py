@@ -54,7 +54,6 @@ ACCESOS = {
     "ranking": "Top penalizantes",
     "disponibilidad": "Evolución de objetivos",
     "paradas": "Parada propia vs. inducida",
-    "simulacion": "Simulación de la línea",
 }
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
             "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "Categoria"]
@@ -619,7 +618,6 @@ def calidad(datos_locales: bool):
 
 def accesos():
     with st.container(key="visualizaciones"):
-        st.html("<h2>Visualizaciones</h2>")
         estilos = []
         for vista in ACCESOS:
             svg = (APP / "assets" / "visualizaciones" / f"{vista}.svg").read_bytes()
@@ -844,36 +842,28 @@ vista = st.session_state.get("vista", "inicio")
 if vista == "inicio":
     nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
 else:
-    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos", "simulacion": "Simulación de la línea"}
+    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos", "simulacion": "Simulación de la línea",
+              "visualizaciones": "Visualizaciones"}
     nombre_vista = titulo.get(vista) or VISTAS[vista][1]
-NAV = (("inicio", "resumen"), ("reparto", "reparto"), ("criticidad", "criticidad"), ("ranking", "penalizantes"),
-       ("paradas", "paradas"), ("disponibilidad", "objetivos"), ("simulacion", "simulación"), ("detalle", "máquinas"), ("datos", "datos"))
-NAV_ACTIVO = {"ciclo": "disponibilidad", "frecuencia": "disponibilidad"}.get(vista, vista)
+NAV = (("inicio", "resumen"), ("visualizaciones", "visualizaciones"), ("simulacion", "simulación"),
+       ("detalle", "máquinas"), ("datos", "datos"))
+NAV_ACTIVO = "visualizaciones" if vista in VISTAS else vista
+logo = b64encode((APP / "assets" / "horse.png").read_bytes()).decode("ascii")
 with st.container(key="barra_nav", horizontal=True, vertical_alignment="center", gap="medium"):
-    with st.container(key="nav_enlaces", horizontal=True, horizontal_alignment="left",
+    st.html('<div class="nav-hueco"></div>', width=110)
+    with st.container(key="nav_enlaces", horizontal=True, horizontal_alignment="center",
                       vertical_alignment="center", gap="large", width="stretch"):
         for destino, etiqueta in NAV:
             st.button(etiqueta, key=f"nav_{destino}", type="tertiary", on_click=navegar, args=(destino,))
+    st.html('<a class="horse-link" href="https://horse-powertrain.com/" target="_blank" rel="noopener noreferrer">'
+            f'<img class="horse" src="data:image/png;base64,{logo}" alt="Web oficial de HORSE"></a>', width=110)
 if NAV_ACTIVO in {d for d, _ in NAV}:
     st.html(f"<style>.st-key-nav_{NAV_ACTIVO} button {{ border-bottom-color: var(--lossia-accent) !important; }}"
             f".st-key-nav_{NAV_ACTIVO} button p {{ color: var(--lossia-ink) !important; }}</style>")
 
 with st.container(key="cabecera"):
-    cabecera, acciones = st.columns([1, 0.38], vertical_alignment="top")
-    with cabecera:
-        clase_titulo = ' class="titulo-principal"' if vista == "inicio" else ""
-        st.html(f'<h1{clase_titulo}>{nombre_vista}</h1>')
-    with acciones, st.container(key="cabecera_acciones", horizontal=True,
-                               horizontal_alignment="right", vertical_alignment="center",
-                               gap="small", wrap=False):
-        logo = b64encode((APP / "assets" / "horse.png").read_bytes()).decode("ascii")
-        st.html(
-            '<a class="horse-link" href="https://horse-powertrain.com/" target="_blank" rel="noopener noreferrer">'
-            f'<img class="horse" src="data:image/png;base64,{logo}" alt="Web oficial de HORSE"></a>',
-            width="content",
-        )
-        descarga = st.empty()
-        menu()
+    clase_titulo = ' class="titulo-principal"' if vista == "inicio" else ""
+    st.html(f'<h1{clase_titulo}>{nombre_vista}</h1>')
 
 try:
     motor = motor_actual()
@@ -895,17 +885,19 @@ else:
     n_dias_calc = len(resultado.dias)
     fuente_txt = (f"Cálculo en vivo · {n_dias_calc} día{'s' if n_dias_calc != 1 else ''} "
                   "(sin equivalente persistido)")
-descarga.download_button("Descargar CSV", k[COLUMNAS].to_csv(index=False).encode("utf-8"),
-                         file_name="kpis_lossia.csv", mime="text/csv", disabled=k.empty,
-                         icon=":material/download:", on_click="ignore", key="descarga")
 datos_locales = True
 
-if vista != "inicio":
+if vista in VISTAS:
+    st.button("Visualizaciones", icon=":material/arrow_back:", type="tertiary",
+              on_click=navegar, args=("visualizaciones",), key="volver")
+elif vista not in ("inicio", "visualizaciones"):
     st.button("Resumen de la línea", icon=":material/arrow_back:", type="tertiary",
               on_click=navegar, args=("inicio",), key="volver")
 
 if vista == "simulacion":
     simulacion()
+elif vista == "visualizaciones":
+    accesos()
 elif k.empty:
     st.warning("No hay datos para los filtros seleccionados.")
     st.button("Restablecer filtros", on_click=restablecer_filtros, key="restablecer_vacio")
@@ -918,6 +910,10 @@ elif vista == "inicio":
 elif vista == "detalle":
     detalle(motor, k, resultado, dias_sel)
 elif vista == "datos":
+    with st.container(horizontal=True, horizontal_alignment="right"):
+        st.download_button("Descargar CSV", k[COLUMNAS].to_csv(index=False).encode("utf-8"),
+                             file_name="kpis_lossia.csv", mime="text/csv", disabled=k.empty,
+                             icon=":material/download:", on_click="ignore", key="descarga")
     tabla(k, datos_locales)
 else:
     selector_grafico(vista, k, motor, dias_sel)

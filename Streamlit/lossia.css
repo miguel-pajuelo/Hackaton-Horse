@@ -829,3 +829,8 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 [data-testid="stLayoutWrapper"]:has(> .st-key-barra_nav) { position: sticky; top: 0; z-index: 990; margin-top: calc(-1 * clamp(2rem, 2.65vw, 2.85rem)); margin-bottom: 18px; }
 .st-key-nav_enlaces { gap: clamp(14px, 1.7vw, 30px) !important; flex-wrap: wrap; }
 .st-key-nav_enlaces button p { white-space: nowrap; }
+.st-key-barra_nav .horse-link { display: block; margin-left: auto; }
+.st-key-barra_nav .horse { width: 104px !important; height: auto; padding: 0 !important; margin: 0 !important; border: 0 !important; }
+.st-key-descarga button { width: auto !important; padding: 8px 18px !important; gap: 8px; }
+.st-key-descarga button [data-testid="stMarkdownContainer"] { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; clip: auto !important; clip-path: none !important; white-space: nowrap; margin: 0 !important; }
+.st-key-descarga button { height: auto !important; }
