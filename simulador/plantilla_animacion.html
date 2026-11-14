@@ -41,6 +41,7 @@
   .flecha { stroke: #9aa3b2; stroke-width: 1.5; fill: none; }
   .bufbg { fill: #e6e9ee; }
   .buffill { fill: #7b8597; }
+  .bufmod { fill: #E8CFC0 !important; stroke: #B8441F; stroke-width: 1; }
   #tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 12px; display: none; max-width: 260px; z-index: 9; }
   #tip b { font-size: 13px; }
   #tip .fila { display: flex; justify-content: space-between; gap: 12px; }
@@ -93,6 +94,8 @@ const DATOS = /*__DATOS__*/null;
 const COL = ["var(--ok)", "var(--stop)", "var(--sat)", "var(--des)"];
 const NOM = ["Funcionando", "Parada propia", "Bloqueada (SAT)", "Sin piezas (DES)"];
 const ALF = "0123456789abcdefghijklmnopqrstuvwxyz";
+const CAP = Array.isArray(DATOS.buffer) ? DATOS.buffer : Array(DATOS.etapas.length - 1).fill(DATOS.buffer);
+const CAP_MODA = (() => { const c = {}; CAP.forEach(v => c[v] = (c[v] || 0) + 1); return +Object.entries(c).sort((a, b) => b[1] - a[1])[0][0]; })();
 const N = DATOS.etapas.length, POR_FILA = 10, W = 96, Hc = 46, GX = 34, GY = 50, M = 10;
 const nombres = Object.keys(DATOS.escenarios);
 let esc = nombres[0], f = 0, jugando = false, ultimo = null, acum = 0, foco = -1;
@@ -125,7 +128,7 @@ for (let i = 0; i < N - 1; i++) {
   el("path", { d: `M${x1},${y1} L${x2},${y2}`, class: "flecha", "marker-end": "url(#pt)" });
   const vert = x1 === x2, L = 22, G = 5;
   const bx = vert ? x1 + 6 : (x1 + x2) / 2 - L / 2, by = vert ? (y1 + y2) / 2 - L / 2 : y1 - 11;
-  el("rect", { x: bx, y: by, width: vert ? G : L, height: vert ? L : G, class: "bufbg", rx: 2 });
+  el("rect", { x: bx, y: by, width: vert ? G : L, height: vert ? L : G, class: "bufbg" + (CAP[i] !== CAP_MODA ? " bufmod" : ""), rx: 2 });
   const fill = el("rect", { x: bx, y: by, width: 0, height: vert ? 0 : G, class: "buffill", rx: 2 });
   bufs.push({ fill, vert, bx, by, L, G });
 }
@@ -170,7 +173,7 @@ function dibujar() {
     if (s === 1) paradas.push(DATOS.etapas[i]);
   }
   for (let i = 0; i < N - 1; i++) {
-    const q = Math.min(ALF.indexOf(buf[i]), DATOS.buffer) / DATOS.buffer, b = bufs[i];
+    const cap = CAP[i], q = cap > 0 ? Math.min(ALF.indexOf(buf[i]), cap) / cap : 0, b = bufs[i];
     if (b.vert) { b.fill.setAttribute("height", b.L * q); b.fill.setAttribute("width", b.G); b.fill.setAttribute("y", b.by + b.L * (1 - q)); }
     else b.fill.setAttribute("width", b.L * q);
   }
@@ -190,7 +193,7 @@ function mostrarTip(i, ev) {
   const E = DATOS.escenarios[esc], c = [0, 0, 0, 0];
   for (let k = 0; k <= f; k++) c[+E.est[k][i]]++;
   const tot = f + 1, pct = x => (100 * x / tot).toFixed(0) + " %";
-  const antes = i > 0 ? ALF.indexOf(E.buf[f][i - 1]) : "—", despues = i < N - 1 ? ALF.indexOf(E.buf[f][i]) : "—";
+  const antes = i > 0 ? ALF.indexOf(E.buf[f][i - 1]) + "/" + CAP[i - 1] : "—", despues = i < N - 1 ? ALF.indexOf(E.buf[f][i]) + "/" + CAP[i] : "—";
   tip.innerHTML = `<b>${DATOS.etapas[i]}</b> · #${DATOS.orden[i]}<br>Ahora: ${NOM[+E.est[f][i]]}<br>` +
     `Piezas esperando antes / después: ${antes} / ${despues}<hr style="border:0;border-top:1px solid #555">` +
     NOM.map((n, k) => `<div class="fila"><span>${n}</span><span>${pct(c[k])}</span></div>`).join("") +
@@ -221,7 +224,8 @@ bPlay.onclick = () => {
 slider.oninput = () => { f = +slider.value; dibujar(); };
 
 document.getElementById("nota").textContent =
-  `Simulación de eventos discretos con buffers de ${DATOS.buffer} piezas, calibrada con los datos de HORSE ` +
+  `Simulación de eventos discretos con buffers de ${CAP_MODA} piezas` +
+  (CAP.some(v => v !== CAP_MODA) ? ` (los tramos marcados tienen un tamaño propio)` : "") + `, calibrada con los datos de HORSE ` +
   `(producción real media: ${DATOS.real.toLocaleString("es-ES")} motores/día). Haz clic en una etapa para resaltarla; pasa el ratón para ver su detalle.`;
 dibujar();
 </script>
