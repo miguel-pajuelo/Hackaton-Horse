@@ -2,3 +2,4 @@
 /presntacion_reto_lossia.pptx
 __pycache__/
 .ipynb_checkpoints/
+.streamlit/secrets.toml
