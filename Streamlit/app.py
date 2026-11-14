@@ -350,13 +350,16 @@ def calendario_alerta(alerta: dict, dias: list, datos: pd.DataFrame):
             texto = " · ".join(lineas)
             tooltip = "".join(f"<span>{escape(linea)}</span>" for linea in lineas)
             extremo = "cal-fin" if dia == dias_semana[-1] else ""
+            simbolo = ("!" if alerta.get("nivel") == "advertencia" else "×") if clase == "afectado" else (
+                "–" if clase == "desconocido" else "")
             celdas.append(
                 f'<div class="cal-celda {clase} {extremo}" tabindex="0" role="img" aria-label="{escape(texto, quote=True)}">'
-                f'{"×" if clase == "afectado" else "–" if clase == "desconocido" else ""}'
+                f'{simbolo}'
                 f'<span class="cal-tooltip" aria-hidden="true">{tooltip}</span></div>'
             )
+    gravedad = "advertencia" if alerta.get("nivel") == "advertencia" else "error"
     st.html(
-        '<div class="calendario-alerta"><div class="cal-titulo"><strong>Días afectados</strong>'
+        f'<div class="calendario-alerta {gravedad}"><div class="cal-titulo"><strong>Días afectados</strong>'
         f'<span>{len(afectados)} días</span></div>'
         f'<div class="cal-scroll"><div class="cal-matriz" style="{columnas}">{"".join(celdas)}</div></div>'
         '<div class="cal-leyenda"><span><i class="afectado"></i>Día afectado</span>'
@@ -789,8 +792,11 @@ REGISTRO = DIR_LIMPIOS / "registro_limpieza.json"
 INFORME = DIR_LIMPIOS / "informe_limpieza.txt"
 
 vista = st.session_state.get("vista", "inicio")
-titulo = {"inicio": "Resumen de la línea", "detalle": "Detalle por máquina", "datos": "Tabla de datos"}
-nombre_vista = titulo.get(vista) or VISTAS[vista][1]
+if vista == "inicio":
+    nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
+else:
+    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos"}
+    nombre_vista = titulo.get(vista) or VISTAS[vista][1]
 with st.container(key="cabecera"):
     cabecera, acciones = st.columns([1, 0.38], vertical_alignment="top")
     with cabecera:
