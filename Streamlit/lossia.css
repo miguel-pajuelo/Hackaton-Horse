@@ -827,3 +827,5 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .st-key-nav_cta button { border-radius: 2px; padding: 8px 22px; min-height: 0; }
 .st-key-nav_cta button p { font-weight: 600; font-size: 14px; }
 [data-testid="stLayoutWrapper"]:has(> .st-key-barra_nav) { position: sticky; top: 0; z-index: 990; margin-top: calc(-1 * clamp(2rem, 2.65vw, 2.85rem)); margin-bottom: 18px; }
+.st-key-nav_enlaces { gap: clamp(14px, 1.7vw, 30px) !important; flex-wrap: wrap; }
+.st-key-nav_enlaces button p { white-space: nowrap; }

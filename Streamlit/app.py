@@ -846,17 +846,17 @@ if vista == "inicio":
 else:
     titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos", "simulacion": "Simulación de la línea"}
     nombre_vista = titulo.get(vista) or VISTAS[vista][1]
-NAV = (("inicio", "resumen"), ("ranking", "penalizantes"), ("detalle", "máquinas"), ("datos", "datos"))
+NAV = (("inicio", "resumen"), ("reparto", "reparto"), ("criticidad", "criticidad"), ("ranking", "penalizantes"),
+       ("paradas", "paradas"), ("disponibilidad", "objetivos"), ("simulacion", "simulación"), ("detalle", "máquinas"), ("datos", "datos"))
+NAV_ACTIVO = {"ciclo": "disponibilidad", "frecuencia": "disponibilidad"}.get(vista, vista)
 with st.container(key="barra_nav", horizontal=True, vertical_alignment="center", gap="medium"):
-    st.button("lossia", key="nav_marca", type="tertiary", on_click=navegar, args=("inicio",))
-    with st.container(key="nav_enlaces", horizontal=True, horizontal_alignment="center",
+    with st.container(key="nav_enlaces", horizontal=True, horizontal_alignment="left",
                       vertical_alignment="center", gap="large", width="stretch"):
         for destino, etiqueta in NAV:
             st.button(etiqueta, key=f"nav_{destino}", type="tertiary", on_click=navegar, args=(destino,))
-    st.button("Simular la línea", key="nav_cta", type="primary", on_click=navegar, args=("simulacion",))
-if f"nav_{vista}" in {f"nav_{d}" for d, _ in NAV}:
-    st.html(f"<style>.st-key-nav_{vista} button {{ border-bottom-color: var(--lossia-accent) !important; }}"
-            f".st-key-nav_{vista} button p {{ color: var(--lossia-ink) !important; }}</style>")
+if NAV_ACTIVO in {d for d, _ in NAV}:
+    st.html(f"<style>.st-key-nav_{NAV_ACTIVO} button {{ border-bottom-color: var(--lossia-accent) !important; }}"
+            f".st-key-nav_{NAV_ACTIVO} button p {{ color: var(--lossia-ink) !important; }}</style>")
 
 with st.container(key="cabecera"):
     cabecera, acciones = st.columns([1, 0.38], vertical_alignment="top")
@@ -911,12 +911,10 @@ elif k.empty:
     st.button("Restablecer filtros", on_click=restablecer_filtros, key="restablecer_vacio")
     if vista == "inicio":
         calidad(datos_locales)
-        accesos()
 elif vista == "inicio":
-    kpis_cabecera(k)
     insights(k, resultado)
+    kpis_cabecera(k)
     calidad(datos_locales)
-    accesos()
 elif vista == "detalle":
     detalle(motor, k, resultado, dias_sel)
 elif vista == "datos":
