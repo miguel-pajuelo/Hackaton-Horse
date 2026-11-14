@@ -89,13 +89,17 @@ def tiempos_servicio(p: pd.DataFrame, n_piezas: int, rng: np.random.Generator) -
     return ciclo + paradas, paradas
 
 
-def simular(t: np.ndarray, buffer: int, horizonte_s: float, guardar: bool = False) -> dict:
+def simular(t: np.ndarray, buffer, horizonte_s: float, guardar: bool = False) -> dict:
     """
     t[i, k]: tiempo de servicio de la pieza k en la etapa i.
     Bloqueo tras servicio: la pieza sale de i cuando hay hueco en el buffer de i+1.
     Mide en la ventana [horizonte, 2*horizonte) para quitar el arranque en vacío.
     """
     n, K = t.shape
+    # buffer: un entero (mismo tamaño en todos los tramos) o una lista con el de cada tramo i -> i+1
+    cap = [int(buffer)] * max(n - 1, 0) if np.isscalar(buffer) else [int(b) for b in buffer]
+    if len(cap) != max(n - 1, 0):
+        raise ValueError(f"Se esperaban {n - 1} buffers y llegaron {len(cap)}")
     S = np.zeros((n, K))  # inicio
     D = np.zeros((n, K))  # salida
     C = np.zeros((n, K))  # fin de proceso (antes de esperar hueco)
@@ -109,8 +113,8 @@ def simular(t: np.ndarray, buffer: int, horizonte_s: float, guardar: bool = Fals
             libre = D[i, k - 1] if k > 0 else 0.0
             s = llegada if llegada > libre else libre
             c = s + tl[i][k]
-            if i < n - 1 and k - buffer - 1 >= 0:
-                hueco = S[i + 1, k - buffer - 1]
+            if i < n - 1 and k - cap[i] - 1 >= 0:
+                hueco = S[i + 1, k - cap[i] - 1]
                 d = c if c > hueco else hueco
             else:
                 d = c

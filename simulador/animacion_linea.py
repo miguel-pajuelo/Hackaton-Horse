@@ -82,7 +82,7 @@ OSCURO = """
 """
 
 
-def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer: int = 8, paso: int = 60,
+def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer=8, paso: int = 60,
                    semilla: int = 2026, oscuro: bool = False):
     """Simula la jornada en dos escenarios y devuelve (html, motores_actual, motores_mejora).
     factor = fracción de las paradas de 'mejorar' que se mantiene (0 = sin paradas)."""
@@ -108,7 +108,8 @@ def construir_html(raiz: Path, mejorar: str, factor: float = 0.0, buffer: int = 
         piezas.append(res["piezas"])
     datos = {
         "etapas": p["Etapa"].tolist(), "orden": p["Orden"].astype(int).tolist(),
-        "n_par": p["n_par"].astype(int).tolist(), "buffer": buffer, "paso": paso,
+        "n_par": p["n_par"].astype(int).tolist(), "paso": paso,
+        "buffer": ([int(buffer)] * (len(p) - 1) if np.isscalar(buffer) else [int(b) for b in buffer]),
         "real": round(real), "escenarios": escenarios,
     }
     plantilla = (Path(__file__).parent / "plantilla_animacion.html").read_text(encoding="utf-8")

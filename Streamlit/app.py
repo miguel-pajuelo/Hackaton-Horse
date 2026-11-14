@@ -963,6 +963,34 @@ def simulacion_html(raiz, mejorar, factor, buffer):
     return AL.construir_html(Path(raiz), mejorar, factor=factor, buffer=buffer, oscuro=True)
 
 
+def buffers_por_tramo(etapas, general):
+    """Editor compacto (en un popover) del tamaño de cada buffer. Devuelve un int si todos
+    los tramos usan el general, o una tupla con el tamaño de cada tramo."""
+    version = st.session_state.setdefault("sim_buf_version", 0)
+    clave = f"sim_buf_editor_{version}"
+    cambiados = st.session_state.get(clave, {}).get("edited_rows", {})
+    n_mod = sum(1 for fila in cambiados.values() if "Piezas" in fila and fila["Piezas"] is not None
+                and int(fila["Piezas"]) != general)
+    etiqueta = f"Por tramo · {n_mod} cambiado{'s' if n_mod != 1 else ''}" if n_mod else "Por tramo"
+    with st.popover(etiqueta, icon=":material/tune:", key="sim_buf_popover"):
+        st.caption("Cambia solo los tramos que quieras; el resto usa el tamaño general. "
+                   "En la animación, los tramos con tamaño propio salen marcados.")
+        tabla_b = pd.DataFrame({"Desde": etapas[:-1], "Hasta": etapas[1:], "Piezas": general})
+        editada = st.data_editor(
+            tabla_b, key=clave, hide_index=True, height=330, width="stretch",
+            column_config={
+                "Desde": st.column_config.TextColumn(disabled=True),
+                "Hasta": st.column_config.TextColumn(disabled=True),
+                "Piezas": st.column_config.NumberColumn(min_value=0, max_value=30, step=1, format="%d"),
+            })
+        if st.button("Restablecer todos al general", icon=":material/restart_alt:", key="sim_buf_reset",
+                     disabled=not n_mod):
+            st.session_state.sim_buf_version = version + 1
+            st.rerun()
+    valores = tuple(int(v) if pd.notna(v) else general for v in editada["Piezas"])
+    return general if all(v == general for v in valores) else valores
+
+
 def simulacion():
     import streamlit.components.v1 as components
     try:
@@ -977,10 +1005,12 @@ def simulacion():
         mejorar = st.selectbox("Etapa a mejorar", etapas, key="sim_etapa",
                                index=etapas.index("PM_2250") if "PM_2250" in etapas else 0)
         reduccion = st.slider("Reducción de sus paradas", 10, 100, 100, step=10, format="%d %%", key="sim_red")
-        buffer = st.number_input("Piezas entre etapas (buffer)", 1, 20, 8, key="sim_buffer",
-                                 help="8 es el valor calibrado con la producción real.")
+        buffer = st.number_input("Piezas entre etapas (buffer)", 0, 30, 8, key="sim_buffer",
+                                 help="Tamaño general de todos los tramos. 8 es el valor calibrado con "
+                                      "la producción real. Puedes cambiar tramos concretos en «Por tramo».")
+        buffers = buffers_por_tramo(etapas, int(buffer))
     with st.spinner("Simulando la jornada…"):
-        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, int(buffer))
+        html, base, mejora = simulacion_html(str(REPO), mejorar, 1 - reduccion / 100, buffers)
     with st.container(key="sim_kpis", horizontal=True, gap="medium"):
         st.metric("Producción real media", f"{real:,.0f}".replace(",", "."))
         st.metric("Simulada · situación actual", f"{base:,}".replace(",", "."))
