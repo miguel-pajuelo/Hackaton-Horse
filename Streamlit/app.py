@@ -963,32 +963,76 @@ def simulacion_html(raiz, mejorar, factor, buffer):
     return AL.construir_html(Path(raiz), mejorar, factor=factor, buffer=buffer, oscuro=True)
 
 
+PUENTE_BUFFER_JS = """
+export default function(component) {
+    const { setTriggerValue } = component;
+    if (window.__lossiaPuente) window.removeEventListener("message", window.__lossiaPuente);
+    window.__lossiaPuente = (e) => {
+        const d = e.data;
+        if (d && d.tipo === "lossia-buffer")
+            setTriggerValue("buffer", { tramo: d.tramo, piezas: d.piezas, t: Date.now() });
+    };
+    window.addEventListener("message", window.__lossiaPuente);
+}
+"""
+_puente_buffer = st.components.v2.component("lossia_puente_buffer", js=PUENTE_BUFFER_JS)
+
+
+def _buffers_cambiados():
+    """Pasa los cambios del editor de tramos a sim_buf_over y lo reinicia."""
+    version = st.session_state.get("sim_buf_version", 0)
+    general = int(st.session_state.get("sim_buffer", 8))
+    over = st.session_state.setdefault("sim_buf_over", {})
+    for idx, cambio in st.session_state.get(f"sim_buf_editor_{version}", {}).get("edited_rows", {}).items():
+        if "Piezas" in cambio:
+            v = cambio["Piezas"]
+            if v is None or int(v) == general:
+                over.pop(int(idx), None)
+            else:
+                over[int(idx)] = int(v)
+    st.session_state.sim_buf_version = version + 1
+
+
+def _buffers_restablecer():
+    st.session_state.sim_buf_over = {}
+    st.session_state.sim_buf_version = st.session_state.get("sim_buf_version", 0) + 1
+
+
 def buffers_por_tramo(etapas, general):
-    """Editor compacto (en un popover) del tamaño de cada buffer. Devuelve un int si todos
-    los tramos usan el general, o una tupla con el tamaño de cada tramo."""
+    """Tamaño de cada buffer: editor compacto en un popover y clic sobre los tramos de la
+    animación (que llega por el puente). Devuelve un int si todos usan el general, o una tupla."""
+    over = st.session_state.setdefault("sim_buf_over", {})
+    clic = _puente_buffer(key="sim_puente", on_buffer_change=lambda: None)
+    evento = getattr(clic, "buffer", None)
+    if evento and evento.get("t") != st.session_state.get("sim_buf_ultimo_clic"):
+        st.session_state.sim_buf_ultimo_clic = evento.get("t")
+        tramo, piezas = int(evento["tramo"]), int(evento["piezas"])
+        if 0 <= tramo < len(etapas) - 1:
+            if piezas == general:
+                over.pop(tramo, None)
+            else:
+                over[tramo] = max(0, min(30, piezas))
+            st.session_state.sim_buf_version = st.session_state.get("sim_buf_version", 0) + 1
     version = st.session_state.setdefault("sim_buf_version", 0)
-    clave = f"sim_buf_editor_{version}"
-    cambiados = st.session_state.get(clave, {}).get("edited_rows", {})
-    n_mod = sum(1 for fila in cambiados.values() if "Piezas" in fila and fila["Piezas"] is not None
-                and int(fila["Piezas"]) != general)
+    n_mod = len(over)
     etiqueta = f"Por tramo · {n_mod} cambiado{'s' if n_mod != 1 else ''}" if n_mod else "Por tramo"
     with st.popover(etiqueta, icon=":material/tune:", key="sim_buf_popover"):
         st.caption("Cambia solo los tramos que quieras; el resto usa el tamaño general. "
-                   "En la animación, los tramos con tamaño propio salen marcados.")
-        tabla_b = pd.DataFrame({"Desde": etapas[:-1], "Hasta": etapas[1:], "Piezas": general})
-        editada = st.data_editor(
-            tabla_b, key=clave, hide_index=True, height=330, width="stretch",
+                   "También puedes hacer clic en un tramo de la animación.")
+        tabla_b = pd.DataFrame({"Desde": etapas[:-1], "Hasta": etapas[1:],
+                                "Piezas": [over.get(i, general) for i in range(len(etapas) - 1)]})
+        st.data_editor(
+            tabla_b, key=f"sim_buf_editor_{version}", hide_index=True, height=330, width="stretch",
+            on_change=_buffers_cambiados,
             column_config={
                 "Desde": st.column_config.TextColumn(disabled=True),
                 "Hasta": st.column_config.TextColumn(disabled=True),
                 "Piezas": st.column_config.NumberColumn(min_value=0, max_value=30, step=1, format="%d"),
             })
-        if st.button("Restablecer todos al general", icon=":material/restart_alt:", key="sim_buf_reset",
-                     disabled=not n_mod):
-            st.session_state.sim_buf_version = version + 1
-            st.rerun()
-    valores = tuple(int(v) if pd.notna(v) else general for v in editada["Piezas"])
-    return general if all(v == general for v in valores) else valores
+        st.button("Restablecer todos al general", icon=":material/restart_alt:", key="sim_buf_reset",
+                  disabled=not n_mod, on_click=_buffers_restablecer)
+    valores = tuple(over.get(i, general) for i in range(len(etapas) - 1))
+    return general if not over else valores
 
 
 def simulacion():
