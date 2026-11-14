@@ -71,6 +71,14 @@ OSCURO = """
   .bufbg { fill: #E4DCC8; } .buffill { fill: #3C5878; } .flecha { stroke: #B7AC90; }
   #tip { background: #0A2540; color: #F5F1E8; border-radius: 2px; }
   input[type=range] { accent-color: #B8441F; }
+  .barra, .tiempo, #lienzo, .nota { padding-left: 0; padding-right: 0; }
+  .barra:first-of-type { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .barra:first-of-type .controles { grid-column: 1 / -1; justify-content: flex-start; }
+  .kpi { min-width: 0; min-height: 96px; padding: 14px 16px; }
+  .kpi .v { font-size: 26px; }
+  .card { background: #FBF8F1; border-color: #C9BFA3; }
+  .leyenda { padding: 4px 0; }
+  #lienzo { padding-top: 4px; }
 """
 
 

@@ -835,3 +835,49 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .st-key-descarga button [data-testid="stMarkdownContainer"] { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; clip: auto !important; clip-path: none !important; white-space: nowrap; margin: 0 !important; }
 .st-key-descarga button { height: auto !important; }
 .insight-nota { margin: 0; color: var(--lossia-muted); font-size: .82rem; line-height: 1.35; border-top: 1px solid var(--lossia-edge-soft); padding-top: 8px; }
+
+/* --- Tarjetas de cifras iguales (detalle por máquina y simulación) --- */
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) {
+    display: grid !important; gap: 12px !important;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: stretch;
+}
+.st-key-sim_kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) > * { width: auto !important; min-width: 0 !important; height: 100%; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stElementContainer"],
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] { height: 100%; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] {
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 6px;
+    min-height: 112px; padding: 14px 14px !important; background: var(--lossia-panel);
+    border: 1px solid var(--lossia-edge) !important; border-radius: 2px;
+}
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricValue"] {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(20px, 1.65vw, 28px) !important; line-height: 1.15;
+}
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] p { white-space: normal; line-height: 1.3; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] > div, :is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricValue"] > div { overflow: visible !important; text-overflow: clip !important; white-space: nowrap; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] { height: auto !important; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricDelta"] { border-radius: 2px; font-family: var(--font-mono); font-size: 12px; }
+/* Avisos (st.info) con estética atlas */
+[data-testid="stAlert"] [data-testid="stAlertContentInfo"], [data-testid="stAlertContainer"] {
+    border-radius: 2px;
+}
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]) {
+    background: var(--lossia-side) !important; border-left: 3px solid var(--lossia-accent);
+    color: var(--lossia-ink) !important;
+}
+[data-testid="stAlertContentInfo"], [data-testid="stAlertContentInfo"] p { color: var(--lossia-ink) !important; }
+[data-testid="stAlertContentInfo"] strong { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; color: var(--lossia-accent); }
+/* Controles de la simulación alineados */
+.st-key-sim_controles { padding: 16px 18px; background: var(--lossia-panel); border: 1px solid var(--lossia-edge); border-radius: 2px; }
+.st-key-sim_controles > * { flex: 1 1 0 !important; min-width: 0; }
+
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] { justify-content: space-between !important; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] p { font-size: 11px !important; letter-spacing: .04em !important; word-break: normal; overflow-wrap: normal; hyphens: none; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricDelta"] * { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] > div { width: 100%; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetricLabel"] { min-height: 2.9em; align-items: flex-start; }
+:is(.st-key-metricas_detalle, .st-key-sim_kpis) [data-testid="stMetric"] { min-height: 0 !important; justify-content: flex-start !important; }
+.st-key-sim_kpis [data-testid="stMetricValue"] { font-size: clamp(26px, 2.2vw, 34px) !important; }
+.st-key-sim_kpis [data-testid="stMetricLabel"] { min-height: 1.6em; }
