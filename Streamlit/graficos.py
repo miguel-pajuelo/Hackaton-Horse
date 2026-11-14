@@ -7,17 +7,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lossia import config as LC
 
-COLORES = {"TBF": "#46866B", "TAP": "#B45257", "DES": "#BB8B4D", "SAT": "#577DB1"}
+
+COLORES = {"TBF": "#46866B", "TAP": "#FFFFFF", "DES": "#BB8B4D", "SAT": "#A5A5A5"}
 NOMBRES = {
     "TBF": "Funcionando (TBF)",
     "TAP": "Parada propia (TAP)",
     "DES": "Desabastecimiento (DES)",
     "SAT": "Saturación (SAT)",
 }
-AZUL = "#0045A5"
-SECUNDARIO = "#566578"
-GRIS_BARRA = "#8796A9"
+AZUL = "#FFFFFF"
+SECUNDARIO = "#B0B0B0"
+GRIS_BARRA = "#929292"
 
 
 def _eje_operaciones(fig, operaciones):
@@ -88,7 +90,7 @@ def _criticidad(k):
         return None, puntos
 
     puntos["Tamaño"] = puntos.TAP.clip(lower=0.01)
-    destacadas = puntos[puntos.Indice.gt(0)].nlargest(3, "Indice").Operacion
+    destacadas = puntos[puntos.Severidad.gt(0)].nlargest(3, "Severidad").Operacion
     puntos["Etiqueta"] = puntos.Operacion.where(puntos.Operacion.isin(destacadas), "")
     fig = go.Figure()
     con_dp = puntos[puntos.Dp.notna()]
@@ -98,7 +100,7 @@ def _criticidad(k):
             continue
         marcador = dict(
             sizemode="area", sizeref=2 * puntos["Tamaño"].max() / 28**2, sizemin=4,
-            size=grupo["Tamaño"], line=dict(width=.7, color="#FFFFFF"),
+            size=grupo["Tamaño"], line=dict(width=.7, color="#202020"),
         )
         if tiene_dp:
             marcador.update(color=grupo.Dp, coloraxis="coloraxis")
@@ -117,7 +119,7 @@ def _criticidad(k):
             ),
         )
     fig.update_layout(coloraxis=dict(
-        colorscale=["#B45257", "#CFBC92", "#46866B"], cmin=70, cmax=100,
+        colorscale=["#FFFFFF", "#CFBC92", "#46866B"], cmin=70, cmax=100,
         showscale=not con_dp.empty,
         colorbar=dict(title="Dp", ticksuffix=" %", thickness=12,
                       tickvals=[70, 80, 90, 100], outlinewidth=0),
@@ -134,19 +136,25 @@ def _criticidad(k):
 
 def _ranking(k, dp_min):
     criterios = {
-        "Indice": "Índice de penalización",
-        "TAP": "Parada propia (h)",
-        "Induce_vecinos": "DES siguiente + SAT anterior (h)",
+        "Severidad": "Severidad (método de flechas, solo cuellos relevantes)",
+        "TAP_medio_dia": "Parada propia media por día (mantenimiento)",
+        "Induce_vecinos": "Horas inducidas a las vecinas",
         "Fpm": "Frecuencia de paro (paros / 1000 piezas)",
     }
     col_a, col_b = st.columns([3, 1])
     criterio = col_a.selectbox("Ordenar por", criterios, format_func=criterios.get, key="criterio_ranking")
     top_n = col_b.selectbox("Operaciones", range(5, 31), index=5, key="top_ranking")
-    ranking = k.dropna(subset=[criterio]).nlargest(top_n, criterio)
+    base = k[k.Es_relevante.fillna(False)] if criterio == "Severidad" else k
+    ranking = base.dropna(subset=[criterio]).nlargest(top_n, criterio)
     if ranking.empty:
-        st.info("Sin valores calculables para este criterio en la selección.")
+        mensaje = ("Sin cuellos de botella relevantes en la selección." if criterio == "Severidad"
+                   else "Sin valores calculables para este criterio en la selección.")
+        st.info(mensaje)
         return None, ranking
 
+    es_pct = criterio == "Severidad"
+    escala = 100 if es_pct else 1
+    sufijo = " %" if es_pct else ""
     fig = go.Figure()
     grupos = (
         (ranking.Dp.lt(dp_min), f"Dp < {dp_min:g} %", COLORES["TAP"], ""),
@@ -159,13 +167,13 @@ def _ranking(k, dp_min):
             continue
         disp = grupo.Dp.map(lambda v: f"{v:.2f} %" if pd.notna(v) else "Sin dato")
         fig.add_bar(
-            x=grupo[criterio], y=grupo.Operacion, orientation="h", name=etiqueta,
+            x=grupo[criterio] * escala, y=grupo.Operacion, orientation="h", name=etiqueta,
             marker=dict(color=color, pattern_shape=trama),
             customdata=np.column_stack((grupo.Operacion, grupo.Orden_OP, disp)),
-            texttemplate="%{x:.1f}", textposition="outside", cliponaxis=False,
+            texttemplate=f"%{{x:.1f}}{sufijo}", textposition="outside", cliponaxis=False,
             hovertemplate=(
                 "<b>%{y}</b> · OP %{customdata[1]}<br>"
-                + criterios[criterio] + ": %{x:.2f}<br>Dp: %{customdata[2]}<extra></extra>"
+                + criterios[criterio] + f": %{{x:.2f}}{sufijo}<br>Dp: %{{customdata[2]}}<extra></extra>"
             ),
         )
     fig.update_layout(height=max(445, 118 + len(ranking) * 26), barmode="overlay")
@@ -174,13 +182,18 @@ def _ranking(k, dp_min):
         type="category", categoryorder="array", categoryarray=list(ranking.Operacion),
         autorange="reversed", showgrid=False,
     )
-    with st.expander("Cómo se calcula el índice"):
+    with st.expander("¿Cómo se calcula?"):
         st.markdown(
-            "**Índice = TAP × (1 − TAI / TR)**. Pondera las horas de parada propia "
-            "según la proporción de parada inducida cuando hay TR. Si no hay TR, "
-            "se conserva la ponderación por defecto del cálculo original.\n\n"
-            "**DES siguiente + SAT anterior** suma las horas registradas por las operaciones "
-            "adyacentes en el conjunto filtrado. Es un indicador de contexto de la línea."
+            "**Severidad (método de flechas, Kuo-Lim-Meerkov):** compara cuánto se bloquea "
+            "cada etapa (satura a la anterior) frente a cuánto pasa hambre (la desabastece la "
+            "anterior). Una etapa es cuello de botella cuando las flechas de sus vecinas "
+            "convergen en ella; es relevante si su severidad supera el umbral de "
+            f"`lossia/config.py` ({LC.SEVERIDAD_MIN:.0%}).\n\n"
+            "**TAP medio/día** y **Fpm** son indicadores de mantenimiento: una etapa puede "
+            "pararse mucho sin ser cuello de botella (tiene capacidad sobrante o un buffer la "
+            "protege) y seguir siendo prioritaria para mantenimiento.\n\n"
+            "**Horas inducidas** suman la saturación/desabastecimiento que un cuello de botella "
+            "provoca en su zona de influencia, calculadas por `lossia/determinista.py`."
         )
     return fig, ranking
 
@@ -227,7 +240,7 @@ def _objetivo(k, campo, etiqueta, unidad, umbral, fallo, ascendente):
     fig.update_layout(barmode="overlay")
     estilo_umbral = dict(line_dash="dash", line_color=AZUL, line_width=1.4,
                          annotation_text=f"Objetivo {umbral:g} {unidad}",
-                         annotation_font_color=AZUL, annotation_bgcolor="#FFFFFF")
+                         annotation_font_color=AZUL, annotation_bgcolor="#202020")
     escala = dict(title=f"{etiqueta} ({unidad})", range=[0, max(umbral, datos[campo].max()) * 1.15])
     if horizontal:
         fig.update_layout(height=max(360, 130 + 26 * len(datos)))
@@ -272,11 +285,16 @@ def _frecuencia(k):
     return fig
 
 
-def _diaria(f, op, fechas):
-    dias = pd.to_datetime(f.Fecha.unique() if fechas is None else fechas).sort_values().unique()
-    datos = f[f.Operacion.eq(op)].groupby("Fecha")[list(COLORES)].sum(min_count=1)
+def _diaria(ed, op, fechas):
+    """`ed`: etapa_dia con columna Fecha (ver app.etapa_dia_con_fecha). `fechas`: lista de
+    'Dia' (AAAA-SWW-D) seleccionados en la barra lateral, no fechas de calendario."""
+    dias_etapa = ed[ed.Etapa.eq(op)]
+    eje = (pd.to_datetime(dias_etapa.Fecha.unique()) if fechas is None
+           else pd.to_datetime(dias_etapa.loc[dias_etapa.Dia.isin(fechas), "Fecha"].unique()))
+    eje = eje.sort_values().unique()
+    datos = dias_etapa.groupby("Fecha")[list(COLORES)].sum(min_count=1)
     datos.index = pd.to_datetime(datos.index)
-    datos = datos.reindex(dias).rename_axis("Fecha").reset_index()
+    datos = datos.reindex(eje).rename_axis("Fecha").reset_index()
     fig = _barras_estados(datos, "Fecha", COLORES)
     sin_filas = datos[list(COLORES)].isna().all(axis=1)
     ceros = datos[list(COLORES)].notna().all(axis=1) & datos[list(COLORES)].eq(0).all(axis=1)
@@ -304,7 +322,7 @@ def _vecinas(k, op):
     fig = _barras_estados(datos, "Operacion", COLORES, porcentajes=True)
     foco = posicion - inicio
     fig.add_vrect(
-        x0=foco - .46, x1=foco + .46, fillcolor="#EEF4FC",
+        x0=foco - .46, x1=foco + .46, fillcolor="#393939",
         opacity=1, line_width=0, layer="below",
     )
     _eje_operaciones(fig, datos.Operacion)
@@ -342,15 +360,15 @@ def mostrar_grafico(vista, k, f, op=None, abrir_detalle=None, *, dp_min, tcy_max
     if fig is None:
         return
     fig.update_layout(
-        template="plotly_white", height=fig.layout.height or 490,
-        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
-        font=dict(family="Inter, Segoe UI, sans-serif", size=13, color="#28374B"),
+        template="plotly_dark", height=fig.layout.height or 490,
+        paper_bgcolor="#202020", plot_bgcolor="#202020",
+        font=dict(family="Inter, Segoe UI, sans-serif", size=13, color="#eeeeee"),
         margin=dict(l=24, r=36, t=62, b=28),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        hoverlabel=dict(bgcolor="#FFFFFF"),
+        hoverlabel=dict(bgcolor="#202020"),
     )
-    fig.update_xaxes(automargin=True, gridcolor="#E9EDF3", title_standoff=12)
-    fig.update_yaxes(automargin=True, gridcolor="#E9EDF3", title_standoff=12)
+    fig.update_xaxes(automargin=True, gridcolor="#444444", title_standoff=12)
+    fig.update_yaxes(automargin=True, gridcolor="#444444", title_standoff=12)
     opciones = dict(
         width="stretch", theme=None, key=f"grafico_{vista}",
         config={"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]},
