@@ -631,23 +631,6 @@ def accesos():
 
 
 def selector_grafico(vista, k, motor, dias_sel):
-    categorias = {}
-    for clave, (grupo, _) in VISTAS.items():
-        categorias.setdefault(grupo, clave)
-    area = VISTAS[vista][0]
-    with st.container(key="navegacion_graficos", horizontal=True, gap="small"):
-        categoria = st.selectbox("Categoría", list(categorias), index=list(categorias).index(area),
-                                 key=f"categoria_{vista}")
-        if categoria != area:
-            navegar(categorias[categoria])
-            st.rerun()
-        alternativas = [clave for clave, (grupo, _) in VISTAS.items() if grupo == area]
-        if len(alternativas) > 1:
-            opcion = st.selectbox("Visualización", alternativas, index=alternativas.index(vista),
-                                   format_func=lambda v: VISTAS[v][1], key=f"grafico_{vista}_selector")
-            if opcion != vista:
-                navegar(opcion)
-                st.rerun()
     if k.empty:
         st.info("No hay etapas en la selección para dibujar esta visualización.")
         return
@@ -865,3 +848,60 @@ elif vista == "datos":
     tabla(k, datos_locales)
 else:
     selector_grafico(vista, k, motor, dias_sel)
+
+
+# --- Chat con IA: botón flotante abajo a la derecha ---------------------------------
+SUGERENCIAS_CHAT = ["Resume las principales incidencias", "Detecta patrones en las paradas",
+                    "Propón acciones de mejora"]
+
+
+def alternar_chat():
+    st.session_state.chat_abierto = not st.session_state.get("chat_abierto", False)
+
+
+def enviar_chat(texto):
+    msgs = st.session_state.setdefault("chat_msgs", [])
+    msgs.append({"role": "user", "content": texto})
+    modelo = st.session_state.get("chat_llm")
+    if modelo is None:
+        respuesta = "Carga un modelo con «Cargar mi LLM» para que pueda analizar los datos de la línea."
+    else:
+        respuesta = f"Modelo «{modelo.name}» cargado. La conexión con el modelo todavía no está implementada."
+    msgs.append({"role": "assistant", "content": respuesta})
+
+
+@st.fragment
+def chat_ia():
+    abierto = st.session_state.get("chat_abierto", False)
+    if abierto:
+        with st.container(key="chat_panel"):
+            with st.container(key="chat_cabecera", horizontal=True, vertical_alignment="center"):
+                st.html('<div class="chat-titulo"><span class="chat-chispa">✦</span>Chat con IA</div>')
+                st.button("", icon=":material/close:", type="tertiary", key="chat_cerrar",
+                          on_click=alternar_chat, help="Cerrar")
+            st.html('<p class="chat-sub">Analiza los datos de la línea, detecta patrones '
+                    'o responde a tus preguntas.</p>')
+            st.file_uploader("Cargar mi LLM", type=["gguf", "safetensors", "bin"], key="chat_llm",
+                             help="Formatos: .gguf, .safetensors, .bin")
+            msgs = st.session_state.get("chat_msgs", [])
+            if msgs:
+                with st.container(key="chat_mensajes", height=220):
+                    for m in msgs:
+                        with st.chat_message(m["role"]):
+                            st.markdown(m["content"])
+            else:
+                st.html('<div class="chat-seccion">Sugerencias</div>')
+                for i, s in enumerate(SUGERENCIAS_CHAT):
+                    st.button(s, icon=":material/trending_up:", key=f"chat_sug_{i}", width="stretch",
+                              on_click=enviar_chat, args=(s,))
+            entrada = st.chat_input("Escribe un mensaje...", key="chat_texto", accept_file=True)
+            if entrada:
+                texto = entrada.text if hasattr(entrada, "text") else str(entrada)
+                if texto:
+                    enviar_chat(texto)
+                    st.rerun(scope="fragment")
+    st.button("", icon=":material/close:" if abierto else ":material/chat_bubble:", key="chat_fab",
+              on_click=alternar_chat, help="Cerrar chat" if abierto else "Chat con IA")
+
+
+chat_ia()
