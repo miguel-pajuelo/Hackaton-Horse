@@ -12,7 +12,9 @@
 
 Las cifras salen del motor oficial (`lossia.interfaz.cargar_motor` y `calcular`), el mismo que usa el dashboard: misma unidad de análisis por etapa (operaciones en paralelo fusionadas), mismas prioridades y mismo método de flechas. El modelo no calcula nada.
 
-Para las consultas reconocibles, Python ejecuta las funciones del motor y pasa sus resultados al modelo en una sola petición, sin adjuntar el catálogo de herramientas. Si la consulta es ambigua o depende de la conversación anterior, el cliente permite que el modelo pida las herramientas necesarias. El CSV registra las funciones ejecutadas en ambos casos.
+Para las consultas simples y reconocibles, Python adelanta las funciones del motor y se las entrega al modelo como llamadas ya hechas, normalmente en una sola petición. El modelo conserva el catálogo de herramientas: si lo adelantado no basta, pide lo que falte. Las preguntas compuestas («¿qué es X y cuánto vale en Y?») o con filtros de categoría no se adelantan y decide el modelo. El CSV registra las funciones ejecutadas en ambos casos.
+
+Para la interfaz y las consultas interactivas, usa `responder(...)`: devuelve la respuesta junto con `verificada`, `cifras_no_verificadas` y `sin_datos` (el modelo no consultó ninguna herramienta). Las reglas del verificador están en `chat/REMOTO.md`.
 
 | Herramienta | Devuelve |
 |---|---|

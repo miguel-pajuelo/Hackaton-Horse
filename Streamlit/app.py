@@ -16,6 +16,7 @@ from datetime import date, timedelta
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +30,8 @@ sys.path.insert(0, str(REPO))
 from lossia import config as LC, interfaz as LI  # noqa: E402
 from graficos import mostrar_grafico  # noqa: E402
 from centros import CENTROS  # noqa: E402
+from chat.conexion import conectar  # noqa: E402
+from chat.herramientas import HerramientasLinea, responder  # noqa: E402
 
 TCY_MAX = LC.TCY_MAX_CMIN     # cmin — única fuente de verdad: lossia/config.py
 DP_MIN = LC.DP_MIN * 100      # % — lossia/config.py guarda la fracción (0.90)
@@ -56,6 +59,14 @@ ACCESOS = {
 }
 COLUMNAS = ["Orden_OP", "Operacion", "Tipo", "TBF", "TAP", "DES", "SAT", "TAI", "TR",
             "%TAP", "%TAI", "Dp", "Tcy", "Fpm", "Induce_vecinos", "Severidad", "Categoria"]
+
+# --- Pregunta a la línea (chat con el LLM; el cálculo lo hacen las herramientas de chat/) ---
+SUGERENCIAS = ["¿Qué máquina frena más la línea?",
+               "¿A qué 3 máquinas mando primero a mantenimiento?",
+               "¿Qué disponibilidad propia tiene ST-2390?",
+               "¿Qué es la parada inducida?"]
+MENSAJES_DE_CONTEXTO = 6     # mensajes previos de la misma conversación que se envían al modelo
+REVISAR_CONEXION_S = 60      # cada cuánto se vuelve a comprobar el servidor del modelo
 
 st.set_page_config(page_title="LOSSIA", layout="wide")
 st.html(APP / "lossia.css")
@@ -693,8 +704,12 @@ def detalle(motor, k, resultado, fechas):
         for etiqueta, valor, delta in medidas:
             st.metric(etiqueta, valor, delta, border=True,
                       delta_color="inverse" if etiqueta == "Tiempo de ciclo" else "normal")
+    categoria = fila.Categoria if isinstance(fila.Categoria, str) and fila.Categoria else None
     if pd.notna(fila.Motivo) and fila.Motivo:
-        st.info(f"**Motivo de prioridad:** {fila.Motivo}")
+        st.info((f"**Categoría:** {categoria} · " if categoria else "")
+                + f"**Motivo de prioridad:** {fila.Motivo}")
+    elif categoria:
+        st.info(f"**Categoría:** {categoria}")
 
     alertas_op = [a for a in _alertas() if a.get("operacion") in maquinas]
     registro_op_todo = _registro_por_operacion()
@@ -712,6 +727,129 @@ def detalle(motor, k, resultado, fechas):
                                    label_visibility="collapsed")
     ed = etapa_dia_con_fecha(motor)
     mostrar_grafico(grafico or "diaria", k, ed, op=op, dp_min=DP_MIN, tcy_max=TCY_MAX, fechas=fechas)
+
+
+def estado_llm(forzar=False):
+    """Estado de la conexión con el modelo (se reutiliza unos segundos para no sondear en cada
+    interacción). Lee LLM_* de las variables de entorno o de st.secrets."""
+    guardado = st.session_state.get("llm_estado")
+    if forzar or guardado is None or time.monotonic() - guardado[0] > REVISAR_CONEXION_S:
+        with st.spinner("Comprobando el servidor del modelo…"):
+            guardado = (time.monotonic(), conectar(st.secrets))
+        st.session_state.llm_estado = guardado
+    return guardado[1]
+
+
+def _historial_para_modelo(mensajes):
+    """Pares pregunta-respuesta válidos de esta conversación (sin los turnos que fallaron)."""
+    pares = []
+    for pregunta, respuesta in zip(mensajes[::2], mensajes[1::2]):
+        if not respuesta.get("error"):
+            pares += [{"role": "user", "content": pregunta["content"]},
+                      {"role": "assistant", "content": respuesta["content"]}]
+    return pares[-MENSAJES_DE_CONTEXTO:]
+
+
+def _sello(m):
+    """Estado de cada respuesta del asistente: verificada, cifras sin respaldo o sin datos."""
+    if m.get("error"):
+        st.error(m["content"], icon=":material/cloud_off:")
+        return
+    st.markdown(m["content"])
+    if m["sin_datos"]:
+        st.info("Sin datos de la línea: el modelo respondió sin consultar ninguna herramienta. "
+                "No tomes esta respuesta como un dato de la línea.", icon=":material/info:")
+    if not m["verificada"]:
+        st.warning("Revisar: no se pueden respaldar con los datos de la línea: "
+                   + ", ".join(m["cifras_no_verificadas"]), icon=":material/warning:")
+    elif not m["sin_datos"]:
+        st.success("Cifras verificadas con los datos de la línea", icon=":material/verified:")
+    if m["llamadas"]:
+        with st.expander("¿De dónde sale esto?"):
+            for nombre, argumentos in m["llamadas"]:
+                args = ", ".join(f"{c}={v!r}" for c, v in argumentos.items())
+                st.markdown(f"- `{nombre}({args})`")
+            st.json(m["resultados"], expanded=False)
+
+
+def pregunta_linea(motor, resultado, dias_sel, periodo_txt):
+    """Chat sobre la línea, el centro y los días seleccionados en la barra lateral."""
+    nombre_linea = f"{lineas[linea_activa]['nombre']} · {CENTROS[centro_activo]['nombre']}"
+    if not dias_sel:
+        st.warning("No hay ningún día productivo en el periodo seleccionado. Elige otro periodo o "
+                   "más días de la semana en la barra lateral para preguntar por la línea.")
+        return
+
+    # Una conversación por línea + días: cambiar el periodo no mezcla datos de otro periodo.
+    clave = f"{centro_activo}|{linea_activa}|{','.join(dias_sel)}"
+    historiales = st.session_state.setdefault("chat_historiales", {})
+    mensajes = historiales.setdefault(clave, [])
+    st.caption(f"Responde sobre **{nombre_linea}** · {periodo_txt} · {len(dias_sel)} días "
+               "productivos, los mismos que el resto del dashboard. Las cifras salen del motor "
+               "oficial; el modelo solo las redacta.")
+    if not mensajes and any(m for c, m in historiales.items() if c != clave):
+        st.info("Has cambiado la línea o el periodo: esta conversación empieza de cero para no "
+                "mezclar datos. La anterior se conserva si vuelves a esa selección.",
+                icon=":material/history:")
+
+    estado = estado_llm()
+    with st.container(key="chat_estado", horizontal=True, vertical_alignment="center"):
+        if estado.ok:
+            st.caption(f":green[●] {estado.mensaje}")
+        else:
+            st.warning(f"**Chat no disponible.** {estado.mensaje} El resto del dashboard "
+                       "sigue funcionando.", icon=":material/link_off:")
+        st.button("Comprobar conexión", key="chat_reconectar", type="tertiary",
+                  icon=":material/refresh:", on_click=lambda: st.session_state.pop("llm_estado", None))
+        if mensajes:
+            st.button("Nueva conversación", key="chat_limpiar", type="tertiary",
+                      icon=":material/delete_sweep:", on_click=lambda: historiales.pop(clave, None))
+
+    for m in mensajes:
+        with st.chat_message(m["role"]):
+            if m["role"] == "user":
+                st.markdown(m["content"])
+            else:
+                _sello(m)
+
+    if not mensajes and estado.ok:
+        with st.container(key="chat_sugerencias", horizontal=True, gap="small"):
+            for i, texto in enumerate(SUGERENCIAS):
+                st.button(texto, key=f"sugerencia_{i}",
+                          on_click=lambda t=texto: st.session_state.update(chat_sugerida=t))
+
+    escrita = st.chat_input("Pregunta sobre la línea…", key="chat_entrada", disabled=not estado.ok)
+    pregunta = escrita or st.session_state.pop("chat_sugerida", None)
+    if not pregunta or not estado.ok:
+        return
+
+    historial = _historial_para_modelo(mensajes)
+    mensajes.append({"role": "user", "content": pregunta})
+    with st.chat_message("user"):
+        st.markdown(pregunta)
+    with st.chat_message("assistant"):
+        with st.spinner("Consultando los datos de la línea…"):
+            try:
+                herramientas = HerramientasLinea(DIR_LIMPIOS, DIR_RESULTADOS, dias=dias_sel,
+                                                 motor=motor, resultado=resultado,
+                                                 nombre_linea=nombre_linea)
+                salida = responder(estado.cliente(), estado.config.modelo, herramientas, pregunta,
+                                   historial=historial)
+                respuesta = {"role": "assistant", "content": salida["respuesta"] or "(Sin respuesta)",
+                             **{c: salida[c] for c in ("verificada", "cifras_no_verificadas",
+                                                       "sin_datos", "llamadas", "resultados")}}
+            except TimeoutError:
+                respuesta = {"role": "assistant", "error": True,
+                             "content": "El modelo ha tardado demasiado en responder. Prueba con "
+                                        "una pregunta más concreta o vuelve a intentarlo."}
+            except Exception as error:  # noqa: BLE001  (servidor caído, túnel caducado, clave…)
+                st.session_state.pop("llm_estado", None)
+                respuesta = {"role": "assistant", "error": True,
+                             "content": "No se ha podido obtener respuesta del modelo "
+                                        f"({type(error).__name__}). Si el modelo está en Kaggle, "
+                                        "puede que la sesión o el túnel hayan caducado."}
+        _sello(respuesta)
+    mensajes.append(respuesta)
 
 
 def tabla(k: pd.DataFrame, datos_locales: bool):
@@ -747,7 +885,8 @@ def tabla(k: pd.DataFrame, datos_locales: bool):
 
 def menu():
     with st.popover("Opciones", icon=":material/more_horiz:", key="acciones", on_change="rerun"):
-        for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"), ("datos", "Tabla de datos")):
+        for destino, etiqueta in (("inicio", "Inicio"), ("detalle", "Detalle por máquina"),
+                                  ("datos", "Tabla de datos"), ("pregunta", "Pregunta a la línea")):
             st.button(etiqueta, on_click=navegar, args=(destino,), kwargs={"cerrar_menu": True}, width="stretch")
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
         desactualizado = LI.resultados_desactualizados(DIR_LIMPIOS, DIR_RESULTADOS)
@@ -800,7 +939,8 @@ vista = st.session_state.get("vista", "inicio")
 if vista == "inicio":
     nombre_vista = f"Informe de la {lineas[linea_activa]['nombre'].lower()} - {CENTROS[centro_activo]['nombre']}"
 else:
-    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos"}
+    titulo = {"detalle": "Detalle por máquina", "datos": "Tabla de datos",
+              "pregunta": "Pregunta a la línea"}
     nombre_vista = titulo.get(vista) or VISTAS[vista][1]
 with st.container(key="cabecera"):
     cabecera, acciones = st.columns([1, 0.38], vertical_alignment="top")
@@ -816,6 +956,8 @@ with st.container(key="cabecera"):
             f'<img class="horse" src="data:image/png;base64,{logo}" alt="Web oficial de HORSE"></a>',
             width="content",
         )
+        st.button("Preguntar", key="ir_pregunta", icon=":material/forum:", type="tertiary",
+                  on_click=navegar, args=("pregunta",), help="Pregunta a la línea con el asistente")
         descarga = st.empty()
         menu()
 
@@ -848,7 +990,10 @@ if vista != "inicio":
     st.button("Resumen de la línea", icon=":material/arrow_back:", type="tertiary",
               on_click=navegar, args=("inicio",), key="volver")
 
-if k.empty:
+if vista == "pregunta":
+    # El chat usa los días seleccionados, no los filtros de presentación (tipo, tramo, máquinas).
+    pregunta_linea(motor, resultado, dias_sel, periodo)
+elif k.empty:
     st.warning("No hay datos para los filtros seleccionados.")
     st.button("Restablecer filtros", on_click=restablecer_filtros, key="restablecer_vacio")
     if vista == "inicio":
