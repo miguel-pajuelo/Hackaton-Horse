@@ -47,6 +47,8 @@
 [data-testid="stSidebarHeader"] { height: 0; padding: 0 12px; }
 [data-testid="stSidebarCollapseButton"] { z-index: 2; margin-top: 36px; }
 [data-testid="stSidebarCollapseButton"] button { visibility: visible; }
+/* la cabecera mide 0 px: sin esto el botón de abrir el lateral queda medio fuera de la pantalla */
+[data-testid="stExpandSidebarButton"] { position: fixed; top: 16px; left: 16px; z-index: 1001; }
 [data-testid="stSidebar"] [data-testid="stSidebarContent"] { border-radius: 0; padding: 0; overflow-y: auto; }
 [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
     padding: 20px 22px 24px;
@@ -296,15 +298,16 @@
 }
 .insight-heading .lossia-icon { width: 1.22em; height: 1.22em; }
 .st-key-insights [data-testid="stButton"] button {
-    padding: 3px 9px;
-    min-height: 30px;
-    border: 1px solid #8C9AAB;
+    padding: 8px 18px;
+    min-height: 52px;
+    border: 1.5px solid #6B7F96;
     border-radius: 2px;
     color: var(--lossia-ink);
-    background: #EBE5D3;
+    background: transparent;   /* mismo fondo que su tarjeta */
 }
-.st-key-insights [data-testid="stButton"] button:hover { background: #DED5BE; border-color: #6B7F96; }
-.st-key-insights [data-testid="stButton"] button p { font-size: .875rem; font-weight: 700; }
+.st-key-insights [data-testid="stButton"] button:hover { background: rgba(10, 37, 64, .06); border-color: #6B7F96; }
+/* la máquina es el resultado central de cada insight: tiene que leerse de un vistazo */
+.st-key-insights [data-testid="stButton"] button p { font-size: clamp(20px, 1.9vw, 28px); font-weight: 700; letter-spacing: .01em; }
 .st-key-insights [data-testid="stElementContainer"]:has(.insight-cifras) { margin-top: auto; }
 .insight-cifras { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
 .insight-metricas { display: flex; flex: 1; min-width: 0; gap: clamp(8px, 3cqi, 16px); }
@@ -779,14 +782,26 @@
 .st-key-chat_fab button span[data-testid="stIconMaterial"] { font-size: 28px; }
 .st-key-chat_panel {
     position: fixed; right: 28px; bottom: 104px; z-index: 1000;
-    width: min(360px, calc(100vw - 56px)); max-height: calc(100vh - 140px); overflow-y: auto;
+    width: min(520px, calc(100vw - 56px)); height: min(680px, calc(100vh - 140px)); overflow-y: auto;
     padding: 18px 18px 14px; gap: 12px;
     background: var(--lossia-panel); border: 1px solid var(--lossia-edge); border-radius: 3px;
     box-shadow: 0 1px 0 #C9BFA3;
 }
-.st-key-chat_cabecera { justify-content: space-between; }
+.st-key-chat_cabecera { justify-content: space-between; flex-wrap: nowrap !important; gap: 14px; }
+.st-key-chat_cabecera > :first-child { flex: 0 1 auto !important; width: auto !important; }
+.st-key-chat_cabecera > .st-key-chat_cerrar { margin-left: auto; }   /* refresh junto al modelo, X a la derecha */
+.st-key-chat_cabecera button span[data-testid="stIconMaterial"] { font-size: 26px; }
+.st-key-chat_cabecera .st-key-chat_reconectar button span[data-testid="stIconMaterial"] { font-size: 19px; color: #85817A; }
+.st-key-chat_panel > :has(> .st-key-chat_pie) { margin-top: auto; }
 .chat-titulo { font-size: 1.35rem; font-weight: 700; color: var(--lossia-ink); }
 .chat-chispa { color: #B8441F; margin-right: 8px; }
+.chat-titulo:has(.chat-nombre) { display: flex; align-items: center; }
+.chat-nombre { display: inline-flex; align-items: center; }
+.chat-modelo {
+    margin-left: 12px; padding-left: 12px; border-left: 1px solid #C9BFA3; line-height: 1.2;
+    font-family: var(--font-body, inherit); font-size: .8rem; font-weight: 400; letter-spacing: 0;
+    color: #85817A;
+}
 .chat-sub { margin: 0; color: var(--lossia-muted); font-size: .92rem; line-height: 1.4; }
 .chat-seccion { font-weight: 700; color: var(--lossia-ink); border-top: 1px solid var(--lossia-edge-soft); padding-top: 12px; }
 .st-key-chat_panel [data-testid="stFileUploader"] section { padding: 10px; }
@@ -885,7 +900,6 @@ button[kind="primary"], [data-testid="stBaseButton-primary"] { background: var(-
 .st-key-sim_controles .st-key-sim_buf_popover button { min-height: 40px; border-radius: 2px; }
 .st-key-sim_puente { display: none !important; }
 [data-testid="stElementContainer"]:has(> iframe[data-testid="stIFrame"]) { height: auto !important; min-height: 0 !important; flex: 0 0 auto !important; }
-.st-key-chat_estado { flex-wrap: nowrap !important; justify-content: space-between; } .st-key-chat_estado > * { width: auto !important; flex: 0 1 auto !important; }
 .motivo-bloque + .motivo-bloque { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--lossia-edge-soft); }
 .motivo-etiqueta { display: block; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; font-weight: 600; color: var(--lossia-accent); margin-bottom: 4px; }
 .motivo-texto { margin: 0; color: var(--lossia-ink); line-height: 1.5; }

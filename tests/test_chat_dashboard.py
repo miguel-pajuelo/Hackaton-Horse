@@ -124,7 +124,7 @@ def test_pregunta_st2390_verificada_y_cambio_de_periodo():
     at, original = _app(cliente=cliente)
     try:
         assert not at.exception, at.exception
-        assert "Conectado" in _textos(at.caption)
+        assert "Conectado" in at.button(key="chat_reconectar").help
         at.chat_input(key="chat_entrada").set_value("¿Qué disponibilidad propia tiene ST-2390?").run()
         assert not at.exception, at.exception
         global_dp = _dp_oficial("ST_2390")

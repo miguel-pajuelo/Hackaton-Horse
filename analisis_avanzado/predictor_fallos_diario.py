@@ -55,7 +55,11 @@ class DailyFailurePredictor:
     def _cargar_y_entrenar(self) -> None:
         """Carga datos, calcula variables temporales de supervivencia y ajusta el modelo PoC."""
         if not self.datos_path.exists():
-            raise FileNotFoundError(f"No se encontró el archivo: {self.datos_path}")
+            fallback = Path(__file__).resolve().parent.parent / self.datos_path
+            if fallback.exists():
+                self.datos_path = fallback
+            else:
+                raise FileNotFoundError(f"No se encontró el archivo: {self.datos_path}")
 
         raw = pd.read_csv(self.datos_path)
         df = raw[raw["incluir_analisis"] == True].copy()
