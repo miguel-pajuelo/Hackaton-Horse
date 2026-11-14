@@ -4,7 +4,32 @@
     {
       "name": "streamlit",
       "runtimeExecutable": "py",
-      "runtimeArgs": ["-3.14", "-m", "streamlit", "run", "Streamlit/app.py", "--server.headless", "true", "--server.port", "8512"],
+      "runtimeArgs": [
+        "-3.14",
+        "-m",
+        "streamlit",
+        "run",
+        "Streamlit/app.py",
+        "--server.headless",
+        "true",
+        "--server.port",
+        "8512"
+      ],
+      "port": 8512
+    },
+    {
+      "name": "streamlit-chat",
+      "runtimeExecutable": "C:/Users/migue/AppData/Local/Temp/claude/7bd650dc81ae8cc8/8dca04c0-5134-4d6b-9a64-524a9f0c418f/scratchpad/venv_chat/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "streamlit",
+        "run",
+        "Streamlit/app.py",
+        "--server.headless",
+        "true",
+        "--server.port",
+        "8512"
+      ],
       "port": 8512
     }
   ]

@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 APP = Path(__file__).resolve().parent
 REPO = APP.parent
@@ -783,12 +784,43 @@ def _sello(m):
                    + ", ".join(m["cifras_no_verificadas"]), icon=":material/warning:")
     elif not m["sin_datos"]:
         st.success("Cifras verificadas con los datos de la línea", icon=":material/verified:")
-    if m["llamadas"]:
+    fuentes = _fuentes_en_palabras(m.get("llamadas") or [], m.get("resultados") or [])
+    if fuentes:
         with st.expander("¿De dónde sale esto?"):
-            for nombre, argumentos in m["llamadas"]:
-                args = ", ".join(f"{c}={v!r}" for c, v in argumentos.items())
-                st.markdown(f"- `{nombre}({args})`")
-            st.json(m["resultados"], expanded=False)
+            st.markdown("\n".join(f"- {f}" for f in fuentes))
+
+
+def _fuentes_en_palabras(llamadas, resultados):
+    """Qué datos consultó el asistente, contado en lenguaje normal (sin código ni JSON)."""
+    frases = []
+    for i, (nombre, args) in enumerate(llamadas):
+        r = resultados[i] if i < len(resultados) and isinstance(resultados[i], dict) else {}
+        if "error" in r:
+            continue
+        etapa = r.get("etapa") or r.get("operacion") or args.get("nombre")
+        texto = {
+            "resumen_linea": "Resumen general de la línea: disponibilidad, tiempo de ciclo y paradas.",
+            "kpis_etapa": f"Indicadores de **{etapa}**: disponibilidad, tiempo de ciclo, paradas y piezas.",
+            "prioridades": "Lista oficial de máquinas prioritarias y el motivo de cada una.",
+            "cuello_botella": "Análisis de cuellos de botella por el método de flechas: qué máquina "
+                              "hace esperar a la anterior y deja sin piezas a la siguiente.",
+            "mantenimiento": "Ranking de horas de parada propia por máquina, para mantenimiento.",
+            "alertas": f"Alertas de calidad de los datos{f' de **{etapa}**' if etapa else ''}.",
+            "glosario": "Glosario de conceptos de la línea"
+                        + (f": «{args['termino']}»." if args.get("termino") else "."),
+        }.get(nombre)
+        if not texto:
+            continue
+        periodo = r.get("periodo") or {}
+        if periodo.get("dias"):
+            n = periodo["dias"]
+            texto += (f" Periodo completo ({n} días)." if periodo.get("es_periodo_completo")
+                      else f" Días seleccionados en el filtro ({n}).")
+        if texto not in frases:
+            frases.append(texto)
+    if frases:
+        frases.append("Las cifras las calcula el motor oficial de la línea; el modelo solo las redacta.")
+    return frases
 
 
 # (pregunta que se envía, descripción que sale en el tooltip)
@@ -830,6 +862,21 @@ def _responder_chat(pregunta, mensajes, motor, resultado, dias_sel, estado):
                            "Si el modelo está en Kaggle, puede que la sesión o el túnel hayan caducado."}
 
 
+def _rerun_chat():
+    """Repinta solo el chat; si la app entera se está recargando, repinta la app."""
+    try:
+        st.rerun(scope="fragment")
+    except StreamlitAPIException:
+        st.rerun()
+
+
+def _reiniciar_chat(clave):
+    """Botón de refresco: conversación nueva (como al abrir KAIROS) y nueva comprobación del modelo."""
+    st.session_state.get("chat_historiales", {}).pop(clave, None)
+    st.session_state.pop("chat_sugerida", None)
+    st.session_state.pop("llm_estado", None)
+
+
 def alternar_chat():
     st.session_state.chat_abierto = not st.session_state.get("chat_abierto", False)
 
@@ -848,33 +895,49 @@ def chat_ia(motor, resultado, dias_sel):
                     '<span class="chat-nombre">KAIROS<span class="chat-modelo">Mistral 24B</span></span></div>')
                 # el estado de la conexión va en el tooltip del botón de refresco
                 st.button("", icon=":material/refresh:", type="tertiary", key="chat_reconectar",
-                          on_click=lambda: st.session_state.pop("llm_estado", None),
-                          help=(f"{estado.mensaje} Pulsa para comprobar la conexión." if estado.ok
-                                else "Modelo no conectado. Pulsa para comprobar la conexión."))
+                          on_click=_reiniciar_chat, args=(clave,),
+                          help=(f"{estado.mensaje} Pulsa para empezar una conversación nueva." if estado.ok
+                                else "Modelo no conectado. Pulsa para comprobar la conexión y empezar de nuevo."))
                 st.button("", icon=":material/close:", type="tertiary", key="chat_cerrar",
                           on_click=alternar_chat, help="Cerrar")
-            if mensajes:
-                with st.container(key="chat_mensajes", height=240):
-                    for m in mensajes:
-                        with st.chat_message(m["role"]):
-                            if m["role"] == "user":
-                                st.markdown(m["content"])
-                            else:
-                                _sello(m)
+            pendiente = bool(mensajes and mensajes[-1].get("pendiente"))
+            # Los bloques del panel ocupan siempre las mismas posiciones (aunque estén vacíos): si
+            # cambian de sitio, Streamlit deja las sugerencias viejas atenuadas encima mientras el
+            # modelo piensa.
+            with st.container(key="chat_mensajes", height="stretch" if mensajes else "content"):
+                for m in mensajes:
+                    with st.chat_message(m["role"]):
+                        if m["role"] == "user":
+                            st.markdown(m["content"])
+                        elif m.get("pendiente"):   # el modelo está pensando
+                            st.html('<div class="chat-pensando" aria-label="KAIROS está pensando">'
+                                    '<span></span><span></span><span></span></div>')
+                        else:
+                            _sello(m)
             with st.container(key="chat_pie"):   # sugerencias y entrada, pegadas al fondo del panel
                 if not mensajes:
                     st.html('<div class="chat-seccion">Sugerencias</div>')
                     for i, (s, ayuda) in enumerate(SUGERENCIAS_CHAT):
                         st.button(s, icon=":material/trending_up:", key=f"chat_sug_{i}", width="stretch",
                                   help=ayuda, on_click=lambda t=s: st.session_state.update(chat_sugerida=t))
+                else:   # huecos vacíos en el sitio de las sugerencias (sustituyen a los botones)
+                    # el primero marca «pensando»: el CSS cambia la flecha de enviar por un cuadrado de parar
+                    st.html('<span class="chat-esperando"></span>' if pendiente else '<span></span>')
+                    for i in range(len(SUGERENCIAS_CHAT)):
+                        st.html(f'<span data-hueco="{i}"></span>')
                 entrada = st.chat_input("Escribe un mensaje...", key="chat_texto", accept_file=True)
+            if pendiente:
+                # 2.º paso: la pregunta y los puntos ya están en pantalla; ahora se pide la respuesta
+                pregunta = mensajes[-2]["content"]
+                mensajes[-1] = _responder_chat(pregunta, mensajes[:-2], motor, resultado, dias_sel, estado)
+                _rerun_chat()
             texto = (entrada.text if hasattr(entrada, "text") else entrada) if entrada else None
             pregunta = texto or st.session_state.pop("chat_sugerida", None)
             if pregunta:
-                with st.spinner("Consultando los datos de la línea…"):
-                    respuesta = _responder_chat(pregunta, mensajes, motor, resultado, dias_sel, estado)
-                mensajes += [{"role": "user", "content": pregunta}, respuesta]
-                st.rerun(scope="fragment")
+                # 1.er paso: mostrar la pregunta al instante y los puntos de «pensando»
+                mensajes += [{"role": "user", "content": pregunta},
+                             {"role": "assistant", "pendiente": True, "content": ""}]
+                _rerun_chat()
     st.button("", icon=":material/close:" if abierto else ":material/chat_bubble:", key="chat_fab",
               on_click=alternar_chat, help="Cerrar KAIROS" if abierto else "KAIROS")
 
