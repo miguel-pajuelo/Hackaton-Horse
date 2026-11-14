@@ -227,15 +227,18 @@ def test_verificador_exige_la_cifra_de_la_etapa_nombrada():
     assert verificar_cifras("ST_2375 tiene 96,3 % de disponibilidad.", "?",
                             [H.kpis_etapa("ST2375")]) == []
     # zona de un cuello: las etapas citadas como límites no le roban la cifra al cuello
-    assert verificar_cifras("ST_0260 afecta desde ST_0259 hasta ST_0295 con 368,5 h inducidas.",
+    assert verificar_cifras("PM_2020 afecta desde ST_2001 hasta ST_2030 con 69,3 h inducidas.",
                             "?", [H.cuello_botella()]) == []
+    # …pero la cifra de un cuello no vale para otro
+    assert verificar_cifras("ST_0261 afecta a su zona con 69,3 h inducidas.",
+                            "?", [H.cuello_botella()]) == ["69,3"]
 
 
 def test_verificador_redondeo_pregunta_formatos_e_identificadores():
     assert verificar_cifras("Abre 23 h.", "?", [{"h": 22.0}]) == ["23"]
     assert verificar_cifras("ST_2390 para 4 h al día.", "?", [H.kpis_etapa("ST2390")]) == []
     assert verificar_cifras("Tiene 95,7 %.", "¿Tiene ST_2390 un 95,7 %?", []) == ["95,7"]
-    assert verificar_cifras("Las 3 primeras son ST_0260, ST_0261 y PM_2020.", "¿Qué 3?",
+    assert verificar_cifras("Las 3 primeras son PM_2020, ST_0261 y ST_2235.", "¿Qué 3?",
                             [H.prioridades(3)]) == []
     assert verificar_cifras("Hizo 1.234 piezas.", "?", [{"npr": 1234}]) == []
     assert verificar_cifras("ST_2390 hizo 24.484 piezas.", "?", [H.kpis_etapa("ST2390")]) == []
@@ -266,9 +269,10 @@ def test_verificador_liga_cifra_a_etapa_indicador_y_unidad():
     assert verificar_cifras("ST_2390 registró 9.630 paradas propias.", "?", [a]) == []
     # una lista numerada no confunde el número de viñeta con un dato
     p = [H.prioridades(3)]
-    assert verificar_cifras("1. ST_0260: severidad 39,3 %.\n2. ST_0261: severidad 18,0 %.",
+    assert verificar_cifras("1. PM_2020: severidad 18,0 %.\n2. ST_0261: severidad 18,0 %.",
                             "?", p) == []
-    assert verificar_cifras("1. ST_0260: severidad 18,0 %.", "?", p) == ["18,0"]
+    assert verificar_cifras("3. ST_2235: severidad 18,0 %.", "?", p) == ["18,0"]
+    assert verificar_cifras("3. ST_2235: disponibilidad 20,2 %.", "?", p) == []
 
 
 def test_nombre_no_confirmado_solo_vale_para_negarlo():
